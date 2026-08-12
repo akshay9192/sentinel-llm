@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> This repository is the Sentinel LLM derivative of AnythingLLM. Sentinel governance features are planned but not yet implemented. The pinned vanilla baseline and phase evidence are recorded in [`docs/BASELINE.md`](docs/BASELINE.md), while project work is governed by [`PROJECT_PLAN.md`](PROJECT_PLAN.md) and [`AGENTS.md`](AGENTS.md).
+
 <a name="readme-top"></a>
 
 <p align="center">
