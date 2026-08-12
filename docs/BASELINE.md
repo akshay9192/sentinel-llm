@@ -95,3 +95,90 @@ The four ignored local environment files were copied with `Copy-Item` only after
 - The machine-wide Node version is newer than the pinned version. Reproduction requires Node 18.18.0; Phase 0A used a verified portable distribution.
 - No personal AnythingLLM fork was created because direct read-only upstream fetch preserves history and is sufficient.
 - No Sentinel governance functionality was written during this phase.
+
+## Phase 0B vanilla acceptance
+
+Phase 0B used the pinned three-process development stack because Docker Desktop, Docker Engine, Docker Compose, and WSL are absent. The application server and collector ran on their upstream default ports 3001 and 8888. The frontend was explicitly bound to loopback port 3002 because the test process could not bind the upstream Vite default port 3000. All processes used Node 18.18.0. This validates vanilla application behavior but does not claim that the Docker deployment path was exercised.
+
+The ignored local development configuration used only local services:
+
+```text
+LLM_PROVIDER=ollama
+OLLAMA_BASE_PATH=http://127.0.0.1:11434
+OLLAMA_MODEL_PREF=llama3.2:3b
+OLLAMA_MODEL_TOKEN_LIMIT=4096
+EMBEDDING_ENGINE=ollama
+EMBEDDING_BASE_PATH=http://127.0.0.1:11434
+EMBEDDING_MODEL_PREF=nomic-embed-text:latest
+EMBEDDING_MODEL_MAX_CHUNK_LENGTH=8192
+VECTOR_DB=lancedb
+DISABLE_TELEMETRY=true
+```
+
+No cloud key or paid model fallback was configured. AnythingLLM reported `RequiresAuth=false` and `MultiUserMode=false`; `/api/system/check-token` returned HTTP 200, so login was not applicable to this single-user vanilla instance.
+
+### Acceptance matrix
+
+| Scenario | Setup/evidence | Expected | Actual | Result |
+|---|---|---|---|---|
+| Application startup | Curl server `/api/ping`, collector `/`, frontend `/` | All components reachable | HTTP 200 on ports 3001, 8888, and 3002 | PASS |
+| Authentication/login | GET `/api/setup-complete` and `/api/system/check-token` | No login in no-auth mode | `RequiresAuth=false`; token check HTTP 200 | PASS (not applicable) |
+| Workspace creation | POST `/api/workspace/new` | Persisted workspace | ID 1, slug `sentinel-phase-0-baseline` | PASS |
+| Workspace persistence | Stop/restart exact three test PIDs | Same workspace | Workspace ID 1 remained | PASS |
+| PDF upload | Multipart POST to workspace upload | File accepted | HTTP 200, `success=true` | PASS |
+| Parsing | Inspect processed JSON | Known text extracted | 34 words, 60 estimated tokens; fixture lines exact | PASS |
+| Chunk creation | Inspect retrieved source | Searchable chunk exists | One chunk contained metadata and complete PDF text | PASS |
+| Embeddings | POST workspace `update-embeddings` | Local vector generated | One chunk embedded with `nomic-embed-text` | PASS |
+| Vector persistence/storage | Inspect workspace and ignored storage | Persisted vector namespace | Document row, Lance dataset, and vector-cache artifacts present | PASS |
+| Query embedding | Send known and absent queries | Query vectors created locally | Ollama embedder logged one query chunk per request | PASS |
+| Retrieval | Inspect streamed source objects | Relevant PDF chunk returned | Scores 0.669 (known) and 0.553 (absent query) | PASS |
+| Context assembly | Inspect SSE source text | Retrieved text supplied to generation | Full deterministic PDF text in source context | PASS |
+| Grounded Q&A | Ask for orchard access code | `SAPPHIRE-7319` | Stream reconstructed exactly `SAPPHIRE-7319` | PASS |
+| Absent-information behavior | Ask for absent submarine captain | State absence | `It is not present.` | PASS |
+| Streaming | POST `/stream-chat` | Chunked SSE plus final metrics | Multiple chunks and `finalizeResponseStream` | PASS |
+| Restart persistence | Relaunch ports 3001/8888/3002 | Data persists | Workspace, PDF, vectors, and chats remained | PASS |
+| Ollama unavailable | Set LLM endpoint to loopback port 11435; restart server | Controlled failure; no fallback | Closed SSE abort with explicit unreachable diagnostic | PASS |
+| Ollama reconnect | Restore port 11434; restart server | Grounded chat recovers | Same PDF retrieved; correct code streamed | PASS |
+| Invalid model configuration | Set nonexistent tag; restart server | Clear recoverable error | Closed SSE abort: model not found | PASS |
+
+### Deterministic fixture
+
+The temporary one-page PDF was generated with the pinned `pdf-lib` dependency and was not committed. Its SHA-256 was:
+
+```text
+754767102FF87773519ADA68F2742AF9DC2DDCAA7572F8D0D47549FF6F898C86
+```
+
+Parsed content included:
+
+```text
+The orchard access code is SAPPHIRE-7319.
+The responsible rover is named Kookaburra.
+The baseline date is 12 August 2026.
+```
+
+### Significant Phase 0B requests
+
+```text
+GET  http://127.0.0.1:3001/api/ping
+GET  http://127.0.0.1:3001/api/setup-complete
+GET  http://127.0.0.1:3001/api/system/check-token
+POST http://127.0.0.1:3001/api/workspace/new
+POST http://127.0.0.1:3001/api/workspace/sentinel-phase-0-baseline/upload
+GET  http://127.0.0.1:3001/api/system/local-files
+POST http://127.0.0.1:3001/api/workspace/sentinel-phase-0-baseline/update-embeddings
+POST http://127.0.0.1:3001/api/workspace/sentinel-phase-0-baseline/stream-chat
+GET  http://127.0.0.1:3001/api/workspace/sentinel-phase-0-baseline
+GET  http://127.0.0.1:3001/api/workspace/sentinel-phase-0-baseline/chats
+GET  http://127.0.0.1:11434/api/tags
+```
+
+### Phase 0B observations and limitations
+
+- Docker networking and persistence mounts remain unvalidated because no Docker runtime exists. Bare-metal testing used loopback Ollama from the caller namespace and did not rely on container `localhost` semantics.
+- Vite used port 3002; no unrelated port-3000 process was stopped.
+- PowerShell `Invoke-WebRequest` intermittently reported a Vite root failure while direct curl consistently returned HTTP 200 and the expected AnythingLLM HTML.
+- In vanilla `automatic` chat mode, prompts beginning with “According” were routed to agent mode. The isolated workspace was changed through the public API to supported `query` mode so RAG could be tested directly. No source was changed.
+- One Windows curl JSON-quoting attempt produced a body-parser syntax error before model execution. PowerShell JSON serialization succeeded without an application change.
+- The absent-information query retrieved the sole document chunk, then the local model correctly stated the fact was absent. This is observed vanilla behavior, not a deterministic refusal control.
+- Local test data remains in ignored AnythingLLM storage for Phase 0C continuity. No real user data or credentials were used.
