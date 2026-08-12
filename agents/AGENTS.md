@@ -24,7 +24,7 @@ When deciding what to do, follow this order of authority:
 3. Repository-specific instructions in the nearest applicable `AGENTS.md`, `CONTRIBUTING.md`, project documentation, CI configuration, test configuration, formatter, linter, type checker, and build tooling.
 4. Existing public contracts and behavior of the codebase.
 5. Existing local patterns in the files and modules being changed.
-6. This root `AGENTS.md`.
+6. This repository-wide `agents/AGENTS.md`.
 7. General language/framework conventions.
 8. Personal stylistic preference.
 
@@ -45,7 +45,7 @@ For every task:
 At the start of every new coding task or requested repository change, before running
 other repository commands or editing files:
 
-1. Read this root `AGENTS.md` in full.
+1. Read `agents/AGENTS.md` in full.
 2. Run `powershell -NoProfile -ExecutionPolicy Bypass -File .agents/preflight.ps1
    -Acknowledge` from the repository root.
 3. Before touching files in a subdirectory, locate and read any deeper applicable
