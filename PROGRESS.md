@@ -8,13 +8,16 @@ Base commit: `70e0d2eb1dcb08cbb18a44b927d94f8667f57a7f`
 Current branch: `main`
 Integration commit: `4a1b1de4ece947348a16422dc377b9dee8783c58`
 Phase 0A documentation commit: `a71d8fb50bc036b3fc57f990934ada66699c03bd`
+Phase 0B validation commit: `068feaeba8c877dd41db3b5cf6c6defdd931d7d4`
+Phase 0C model-selection commit: `5188a5c3faa2a15c58b403e0f2cd565d453f7d51`
+Sentinel identity commit: `4dd57ee855b592b2cc5ce80cc5c06bd19f710d57`
 Original Sentinel head and safety reference: `1cdee27af70fa96653fa217039d24ca7c998df0d` (`backup/pre-anythingllm-integration`)
 
 ## Current Phase
 
-Phase: 0 review gate
-Sub-phase: Phase 0C local-model feasibility complete
-Status: complete; at the mandatory Phase 0 review gate awaiting developer authorization for Phase 1
+Phase: 1A
+Sub-phase: Architecture mapping
+Status: Phase 1A complete; stopped for developer review before Phase 1B
 
 ## Completed This Session
 
@@ -42,6 +45,14 @@ Status: complete; at the mandatory Phase 0 review gate awaiting developer author
 - Established a Sentinel-first repository identity after Phase 0C: replaced the upstream-marketing root README, added pinned upstream attribution and an independent-derivative notice, and adapted public contribution, security, and issue guidance without modifying application code.
 - Removed the upstream funding link, sponsor-README automation, and general provider-integration request template because they misrepresented or distracted from the independently maintained Sentinel roadmap.
 - Did not write Sentinel governance functionality.
+- Read the complete Phase 1A instruction set and all routed architecture, backend, frontend, database, audit, governance, execution, security, testing, ingestion, Ollama/RAG, and documentation specialist guidance.
+- Mapped repository topology, server bootstrap, authentication, role and workspace authorization, users/API keys, workspace lifecycle, Prisma schema/migrations, transactions, concurrency, configuration, credentials, frontend routing, streaming, errors, and test conventions against pinned source.
+- Traced browser and developer-API chat from frontend/route entry through mode routing, RAG, context assembly, Ollama/provider generation, SSE/WebSocket output, and chat persistence.
+- Traced document upload through server-to-collector integrity handling, parser selection, normalized document output, chunking, Ollama embeddings, LanceDB, and Prisma vector/document mappings.
+- Traced interactive, API, and scheduled agent initialization; built-in/imported skill discovery; intelligent tool reranking; AIbitat function dispatch; MCP; agent flows; nested execution; and outcome handling.
+- Established that AIbitat's `fn.handler(args)` call is a partial common model-to-tool dispatch point, not a universal real-side-effect choke point; direct mutations and nested flow/MCP/imported effects require separate coverage.
+- Built evidence-based actor, resource, side-effect, correlation-ID, trust-boundary, network/filesystem/process, and candidate Sentinel-control-point inventories in `docs/CODEBASE_NOTES.md`.
+- Recorded Phase 1B questions and Phase 1C decision candidates without creating a threat model, ADR, new execution framework, or functional Sentinel code.
 
 ## Tests Executed
 
@@ -77,6 +88,10 @@ Status: complete; at the mandatory Phase 0 review gate awaiting developer author
 - `/api/ps` reported CPU-only execution and loaded allocations of 2.39 GiB llama, 5.53 GiB qwen, and 8.78 GiB gemma at a 4096-token context.
 - Final Phase 0C verification: pinned Node v18.18.0 syntax check passed; focused tests passed 6/6, including result aggregation; CLI help passed; repository-pinned Prettier passed for both scripts, the report, and this tracker; `git diff --check` passed.
 - Phase 0 identity verification: repository-pinned Prettier and `git diff --check` passed; every relative documentation link resolved; prohibited security terminology, upstream marketing redirects, credentials, personal paths, and core application changes were absent from the identity patch.
+- Phase 1A preflight and Git reconnaissance: passed from clean `main` at the authorized identity commit.
+- Phase 1A source-evidence scans: pinned entry points, callers, schemas, middleware, effect handlers, transactions, identifiers, and relevant tests were cross-checked with `rg` and direct file reads.
+- Pinned Node v18.18.0 was restored under ignored `.codex-audit-temp/` and verified against the official SHA-256; five focused existing Jest suites passed (5/5 suites, 24/24 tests) for OpenAI-compatible chat, agent defaults/imported skills, agent-flow execution, and workspace-deletion protection. Jest required `--forceExit` because the selected upstream suites retain open handles.
+- Phase 1A documentation checks: repository-pinned Prettier, documentation path/link validation, terminology scan, and `git diff --check` passed; no model benchmark or paid/cloud inference was run.
 
 ## Security Checks
 
@@ -88,6 +103,8 @@ Status: complete; at the mandatory Phase 0 review gate awaiting developer author
 - Phase 0C used only loopback Ollama; no paid API, cloud fallback, OpenClaw call, or real capability execution was introduced.
 - Tool-planning fixtures were synthetic and inert; raw model proposals were scored as untrusted data only.
 - Repository identity documentation preserves Mintplex Labs attribution, makes planned security controls explicit, and does not claim that future Sentinel enforcement is already implemented.
+- Phase 1A treats model output, retrieved text, uploaded content, and tool results as untrusted; it distinguishes tool selection from deterministic authorization and records the existing event log as insufficient for mandatory tamper-evident audit.
+- No agent tool, MCP server, imported skill, flow, scheduled job, OpenClaw operation, external integration, or cloud resource was executed for architecture mapping.
 
 ## Files Changed
 
@@ -95,6 +112,7 @@ Status: complete; at the mandatory Phase 0 review gate awaiting developer author
 - Phase 0B: `docs/BASELINE.md` acceptance matrix and failure/recovery evidence; this tracker.
 - Phase 0C: `scripts/benchmarkLocalModel.js`, `scripts/benchmarkLocalModel.test.mjs`, `docs/LOCAL_MODEL_BENCHMARK.md`, `.gitignore`, and this tracker.
 - Phase 0 identity: Sentinel-first `README.md`; `NOTICE.md`; `docs/UPSTREAM_ANYTHINGLLM.md`; adapted `CONTRIBUTING.md`, `SECURITY.md`, and issue templates; removed misleading upstream funding, sponsor automation, and provider-integration solicitation.
+- Phase 1A: added `docs/CODEBASE_NOTES.md`; updated this tracker. No `server/`, `frontend/`, `collector/`, `docker/`, schema, migration, dependency, or runtime configuration file changed.
 - Ignored `.codex-audit-temp/` contains preserved generated benchmark JSONL and the earlier audit temp directory; it remains local and was not deleted or committed.
 - Runtime configuration, storage, models, logs, dependencies, and PDF fixture are ignored or outside the repository.
 
@@ -108,6 +126,8 @@ Status: complete; at the mandatory Phase 0 review gate awaiting developer author
 - Use supported query mode for the deterministic RAG fixture after vanilla automatic mode routed “According...” prompts to agent mode.
 - Use `llama3.2:3b` for practical interactive chat, `qwen3:8b` for the optional semantic guardrail signal and exact tool planning, and `nomic-embed-text:latest` for embeddings; model output remains untrusted and outside the authorization boundary.
 - Present Sentinel as an independently maintained governance layer on the pinned AnythingLLM foundation; preserve upstream source, history, internal names, MIT attribution, and operational references instead of cosmetically rebranding application code.
+- Phase 1A observed a partial common AIbitat model-to-plugin dispatch point, multiple chat entry implementations, multiple final-effect executors, and no universal request/effect correlation ID. Architecture choices remain reserved for Phase 1C.
+- Likely low-divergence seams are isolated Sentinel services called by small middleware/chat/AIbitat/executor hooks plus dedicated Prisma and frontend modules; no integration seam was finalized in Phase 1A.
 
 ## Known Limitations
 
@@ -122,13 +142,17 @@ Status: complete; at the mandatory Phase 0 review gate awaiting developer author
 - Destructive OOM, contexts near advertised maxima, more than two concurrent requests, server-side timeout semantics, real OpenClaw execution, and an implemented Sentinel classifier remain untested by design.
 - Only two warm repetitions were used per generative fixture; the results are feasibility evidence, not statistical model-quality claims.
 - The standalone benchmark adds no dependencies and does not change the AnythingLLM application runtime; the full upstream application suite was not rerun for this isolated script/documentation work unit.
+- Developer API key middleware authenticates a secret but does not retain the key/creator as a request actor; scheduled jobs persist no user/workspace owner and run an ephemeral agent with automatic approval. Their future actor/policy semantics are unresolved.
+- Browser chat, developer API chat, OpenAI-compatible chat, and agent WebSocket execution do not share one pre-generation function; AIbitat dispatch does not cover direct mutations or every nested final effect.
+- Existing `event_logs`, chat history, telemetry, console logs, and scheduled traces are optional/subsystem-specific and are not a mandatory tamper-evident audit trail.
+- Route-by-route authorization parity, optional integrations, MCP transports, third-party redirect/redaction behavior, SQLite audit concurrency, and cross-store crash recovery require later focused analysis/testing.
 
 ## Blockers
 
 - None blocking the tested local Phase 0B development stack.
 - Docker-specific acceptance remains an environment limitation and is not claimed as passed.
 - No technical Phase 0C blocker is known.
-- Phase 0 is at its mandatory review gate. Phase 1 requires separate developer authorization; no Phase 1 work has started.
+- No Phase 1A blocker remains. Phase 1B requires separate developer authorization; no threat model or Phase 1C ADR work has started.
 
 ## Remaining DoD Items
 
@@ -142,11 +166,17 @@ Status: complete; at the mandatory Phase 0 review gate awaiting developer author
 - [x] Keep generated `.codex-audit-temp/` evidence local/ignored and retain the reviewed report as the versioned summary artifact.
 - [x] Reconcile baseline/progress wording, run final focused/adjacent checks, inspect the entire diff, and stop at the end-of-Phase-0 review gate.
 - [x] Commit and push the complete verified Phase 0C work unit to `origin/main`; verify local and remote branch SHAs match.
+- [x] Create `docs/CODEBASE_NOTES.md` from pinned source evidence.
+- [x] Map chat/streaming/modes, RAG/context/provider, ingestion/embedding/vector, workspace/schema/migrations, authentication/authorization, frontend, logging/errors, and relevant tests.
+- [x] Map interactive/API/scheduled agents, intelligent selection, built-in/imported tools, MCP, flows, all discovered execution bypasses, and the partial execution choke point.
+- [x] Record actors, resources, side effects, trust boundaries, correlation IDs, candidate Sentinel hooks, Phase 1B questions, Phase 1C decisions, and known unknowns.
+- [x] Keep Phase 1A documentation-only; add no functional governance or execution code and no dependencies.
+- [x] Update this tracker, run focused documentation/diff validation, and stop before Phase 1B.
 
 ## Next Recommended Work Unit
 
-Await explicit developer authorization to begin Phase 1A. Do not begin architecture mapping or any later-phase implementation before that authorization.
+Await explicit developer authorization to begin Phase 1B. Do not create the threat model, Phase 1C ADRs, or any later-phase implementation before that authorization.
 
 ## Git State
 
-Local and remote `main` include the complete Phase 0C work unit and the separate Sentinel repository-identity documentation work unit after Phase 0B commit `068feaeba8c877dd41db3b5cf6c6defdd931d7d4`; their exact matching SHA is recorded in Git history and the final review-gate report. The tracked working tree is clean, while ignored `.codex-audit-temp/` remains preserved locally. No reset, clean, discard, force push, or upstream push was performed.
+Phase 1A began from local and remote `main` at `4dd57ee855b592b2cc5ce80cc5c06bd19f710d57`. Its documentation-only changes are `docs/CODEBASE_NOTES.md` and this tracker; ignored `.codex-audit-temp/` remains preserved locally. No reset, clean, discard, force push, upstream write, runtime change, model benchmark, or external side effect was performed.
