@@ -1,13 +1,18 @@
-name: 📚 Documentation improvement
+name: Documentation improvement
+description: Report a Sentinel LLM documentation problem
 title: "[DOCS]: "
-description: Report an issue or problem with the documentation.
 labels: [documentation]
-
 body:
+  - type: input
+    id: file
+    attributes:
+      label: Affected file or link
+    validations:
+      required: true
   - type: textarea
     id: description
     attributes:
       label: Description
-      description: Describe the issue with the documentation that is giving you trouble or causing confusion.
+      description: Describe the inaccurate, missing, or confusing content and the affected commit.
     validations:
       required: true

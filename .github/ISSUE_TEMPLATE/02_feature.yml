@@ -1,19 +1,24 @@
-name: ✨ New Feature suggestion
-description: Suggest a new feature for AnythingLLM!
+name: Feature suggestion
+description: Suggest a Sentinel LLM roadmap improvement
 title: "[FEAT]: "
 labels: [enhancement, feature request]
 body:
   - type: markdown
     attributes:
       value: |
-        Share a new idea for a feature or improvement. Be sure to search existing
-        issues first to avoid duplicates.
-
+        Search existing Sentinel issues and PROJECT_PLAN.md first. Planned work
+        cannot bypass the current phase review gate.
   - type: textarea
     id: description
     attributes:
       label: What would you like to see?
-      description: |
-        Describe the feature and why it would be useful to your use-case as well as others.
+      description: Describe the capability, use case, and relationship to the Sentinel roadmap.
     validations:
       required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and upstream impact
+      description: Explain trust-boundary, upstream-compatibility, and local-first implications where relevant.
+    validations:
+      required: false

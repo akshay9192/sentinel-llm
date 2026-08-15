@@ -39,6 +39,8 @@ Status: complete; at the mandatory Phase 0 review gate awaiting developer author
 - Completed `docs/LOCAL_MODEL_BENCHMARK.md` with measured results and selected role defaults: chat `llama3.2:3b`, guardrail/agent `qwen3:8b`, embeddings `nomic-embed-text:latest`.
 - Cross-checked the report's scores, timings, memory figures, inventory metadata, embedding results, and context observations against all seven preserved JSONL runs; no evidence discrepancy was found.
 - Kept reproducible raw JSONL local under `.codex-audit-temp/` and added that dedicated generated-evidence directory to `.gitignore`; the reviewed report is the versioned summary artifact.
+- Established a Sentinel-first repository identity after Phase 0C: replaced the upstream-marketing root README, added pinned upstream attribution and an independent-derivative notice, and adapted public contribution, security, and issue guidance without modifying application code.
+- Removed the upstream funding link, sponsor-README automation, and general provider-integration request template because they misrepresented or distracted from the independently maintained Sentinel roadmap.
 - Did not write Sentinel governance functionality.
 
 ## Tests Executed
@@ -74,6 +76,7 @@ Status: complete; at the mandatory Phase 0 review gate awaiting developer author
 - Operational probe: cold ordinary requests were 9.47 s llama, 24.42 s qwen, and 51.61 s gemma; warm requests were 3.74/6.32/5.58 s. All bounded two-request probes completed; 25 ms client deadlines produced controlled aborts.
 - `/api/ps` reported CPU-only execution and loaded allocations of 2.39 GiB llama, 5.53 GiB qwen, and 8.78 GiB gemma at a 4096-token context.
 - Final Phase 0C verification: pinned Node v18.18.0 syntax check passed; focused tests passed 6/6, including result aggregation; CLI help passed; repository-pinned Prettier passed for both scripts, the report, and this tracker; `git diff --check` passed.
+- Phase 0 identity verification: repository-pinned Prettier and `git diff --check` passed; every relative documentation link resolved; prohibited security terminology, upstream marketing redirects, credentials, personal paths, and core application changes were absent from the identity patch.
 
 ## Security Checks
 
@@ -84,12 +87,14 @@ Status: complete; at the mandatory Phase 0 review gate awaiting developer author
 - The outage test changed only AnythingLLM's ignored endpoint configuration; it did not stop or expose the user's Ollama service.
 - Phase 0C used only loopback Ollama; no paid API, cloud fallback, OpenClaw call, or real capability execution was introduced.
 - Tool-planning fixtures were synthetic and inert; raw model proposals were scored as untrusted data only.
+- Repository identity documentation preserves Mintplex Labs attribution, makes planned security controls explicit, and does not claim that future Sentinel enforcement is already implemented.
 
 ## Files Changed
 
 - Phase 0A: integrated pinned upstream source/history; deliberately resolved `README.md` and `LICENSE`; added `docs/BASELINE.md`; updated this tracker.
 - Phase 0B: `docs/BASELINE.md` acceptance matrix and failure/recovery evidence; this tracker.
 - Phase 0C: `scripts/benchmarkLocalModel.js`, `scripts/benchmarkLocalModel.test.mjs`, `docs/LOCAL_MODEL_BENCHMARK.md`, `.gitignore`, and this tracker.
+- Phase 0 identity: Sentinel-first `README.md`; `NOTICE.md`; `docs/UPSTREAM_ANYTHINGLLM.md`; adapted `CONTRIBUTING.md`, `SECURITY.md`, and issue templates; removed misleading upstream funding, sponsor automation, and provider-integration solicitation.
 - Ignored `.codex-audit-temp/` contains preserved generated benchmark JSONL and the earlier audit temp directory; it remains local and was not deleted or committed.
 - Runtime configuration, storage, models, logs, dependencies, and PDF fixture are ignored or outside the repository.
 
@@ -102,6 +107,7 @@ Status: complete; at the mandatory Phase 0 review gate awaiting developer author
 - Use local Ollama for chat and embeddings plus local LanceDB; do not configure a paid fallback.
 - Use supported query mode for the deterministic RAG fixture after vanilla automatic mode routed “According...” prompts to agent mode.
 - Use `llama3.2:3b` for practical interactive chat, `qwen3:8b` for the optional semantic guardrail signal and exact tool planning, and `nomic-embed-text:latest` for embeddings; model output remains untrusted and outside the authorization boundary.
+- Present Sentinel as an independently maintained governance layer on the pinned AnythingLLM foundation; preserve upstream source, history, internal names, MIT attribution, and operational references instead of cosmetically rebranding application code.
 
 ## Known Limitations
 
@@ -143,4 +149,4 @@ Await explicit developer authorization to begin Phase 1A. Do not begin architect
 
 ## Git State
 
-Local and remote `main` include the complete Phase 0C work unit after the Phase 0B commit `068feaeba8c877dd41db3b5cf6c6defdd931d7d4`; their exact matching SHA is recorded in Git history and the final review-gate report. The tracked working tree is clean, while ignored `.codex-audit-temp/` remains preserved locally. No reset, clean, discard, force push, or upstream push was performed.
+Local and remote `main` include the complete Phase 0C work unit and the separate Sentinel repository-identity documentation work unit after Phase 0B commit `068feaeba8c877dd41db3b5cf6c6defdd931d7d4`; their exact matching SHA is recorded in Git history and the final review-gate report. The tracked working tree is clean, while ignored `.codex-audit-temp/` remains preserved locally. No reset, clean, discard, force push, or upstream push was performed.
