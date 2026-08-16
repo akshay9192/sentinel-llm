@@ -15,9 +15,9 @@ Original Sentinel head and safety reference: `1cdee27af70fa96653fa217039d24ca7c9
 
 ## Current Phase
 
-Phase: 1C
-Sub-phase: Architecture decision records
-Status: Phase 1 complete; stopped at the end-of-Phase-1 developer review gate before Phase 2
+Phase: 2A
+Sub-phase: Audit event schema
+Status: Phase 2A complete; stopped for developer review before Phase 2B
 
 ## Completed This Session
 
@@ -68,6 +68,12 @@ Status: Phase 1 complete; stopped at the end-of-Phase-1 developer review gate be
 - Chose chained HMAC-authenticated local checkpoints with separately protected key material and a compatible future Phase 9 external anchor.
 - Chose first-class support for single-user and multi-user modes through typed non-null principals, including a synthetic `instance_owner`, retained API-key principals, delegated agents, schedules, and bounded services.
 - Cross-checked actor, workspace, policy-version, correlation/idempotency, audit, checkpoint, MCP, imported-skill, flow, scheduled, direct-mutation, fail-closed, testing, and rebase semantics across all six ADRs.
+- Passed the explicitly authorized end-of-Phase-1 review gate and entered Phase 2A without beginning canonical hashing or persistence.
+- Added `docs/AUDIT_EVENT_SCHEMA.md` as the version `1` logical audit contract; documentation alone satisfies the Phase 2A DoD, so no runtime validator, dependency, logger, Prisma model, or migration was created.
+- Defined UUID v4 event/request/correlation/attempt/idempotency identifiers, a decimal-string global sequence, server-controlled millisecond UTC timestamps, typed non-null principals, bounded delegation/executor context, and workspace/thread/chat/resource semantics.
+- Defined application-level append-only chat, governance, model, execution, and direct-mutation lifecycle events with explicit pending, completed, failed, denied, partial, and unknown states plus impossible-transition rules.
+- Defined immutable policy-version/hash evidence, deterministic policy/execution decisions, stable reason/rule codes, ordered retrieval evidence, target/proposal/parameter hash placeholders, and default-off raw query/response capture.
+- Defined an allowlist-first redaction policy, prohibited secret/content classes, bounded optional content/attributes, strict unknown-field rejection, forward-compatible versioning, sanitized examples, ADR/threat traceability, and the exact Phase 2B handoff.
 
 ## Tests Executed
 
@@ -113,6 +119,9 @@ Status: Phase 1 complete; stopped at the end-of-Phase-1 developer review gate be
 - Phase 1C preflight and Git reconnaissance: passed at pushed Phase 1B commit `cec53869e223efabc6f2a9edcbb97a35c5b2a48c`; the two preserved post-Phase-1B local documentation changes were inspected before editing.
 - Phase 1C source verification: Prisma 5.3.1 SQLite datasource/transactions, best-effort/deletable `event_logs`, fragmented chat adapters, API-key actor loss, partial AIbitat dispatch, unauthenticated invocation UUID continuation, MCP transports, in-process imported skills, direct flow API calls, and ownerless auto-approved schedules were reconfirmed.
 - Phase 1C documentation validation: repository-pinned formatting, ADR template/category checks, relative-link, source-path, threat-ID, phase-reference, cross-ADR, terminology, credential/personal-path, file-scope, and `git diff --check` checks passed.
+- Phase 2A preflight and Git reconnaissance: passed at pushed Phase 1C commit `45f925ec51e2e644bd5b9d8f97157b70b4a0f9f6`; pre-existing local documentation was inspected and retained outside the Phase 2A work unit.
+- Phase 2A source/convention verification: confirmed pinned UUID v4 usage and dependency, upstream integer workspace/thread/chat/user IDs, UUID agent invocations, absence of a Prisma audit schema, and existing BigInt-to-string JSON handling before choosing logical identifier types.
+- Phase 2A documentation validation: repository-pinned formatting, schema-field/enum/lifecycle/example checks, relative-link and threat/ADR traceability, privacy/terminology/credential/personal-path scans, file-scope checks, and `git diff --check` passed.
 
 ## Security Checks
 
@@ -129,6 +138,8 @@ Status: Phase 1 complete; stopped at the end-of-Phase-1 developer review gate be
 - Phase 1B performed documentation and read-only source analysis only; it preserved model output and all content/tool results as untrusted, deterministic denial as final, mandatory audit failure as fail-closed, and audit claims as tamper-evident within explicit limits.
 - Phase 1C made documentation-only decisions. No runtime, schema, migration, dependency, workflow, OpenClaw, model, or cloud operation was created or executed.
 - All accepted ADRs require non-null actor context, required workspace where applicable, immutable policy reference, deterministic capability/target/parameter denial, mandatory authorization audit before effect, explicit unknown/partial outcomes, and bounded tamper-evident claims.
+- Phase 2A stores no raw content or secrets by default, keeps model/classifier evidence separate from deterministic decisions, and makes malformed protected events fail closed without falling back to `event_logs`.
+- No hashing, canonicalization, chain calculation, database write, migration, chat/AIbitat hook, governance engine, execution, OpenClaw, model call, or cloud action was implemented or run.
 
 ## Files Changed
 
@@ -139,6 +150,7 @@ Status: Phase 1 complete; stopped at the end-of-Phase-1 developer review gate be
 - Phase 1A: added `docs/CODEBASE_NOTES.md`; updated this tracker. No `server/`, `frontend/`, `collector/`, `docker/`, schema, migration, dependency, or runtime configuration file changed.
 - Phase 1B: added `docs/THREAT_MODEL.md`; updated this tracker. No runtime, schema, migration, dependency, ADR, workflow, or configuration file changed.
 - Phase 1C: added `docs/adr/001-audit-storage.md` through `docs/adr/006-single-vs-multi-user.md`; updated this tracker. No application or infrastructure file changed.
+- Phase 2A: added `docs/AUDIT_EVENT_SCHEMA.md`; updated this tracker. No runtime code, test code, Prisma schema, migration, dependency, or integration hook changed.
 - Ignored `.codex-audit-temp/` contains preserved generated benchmark JSONL and the earlier audit temp directory; it remains local and was not deleted or committed.
 - Runtime configuration, storage, models, logs, dependencies, and PDF fixture are ignored or outside the repository.
 
@@ -161,6 +173,7 @@ Status: Phase 1 complete; stopped at the end-of-Phase-1 developer review gate be
 - Policy storage: dedicated immutable workspace policy versions plus a mutable active binding; raw documents and extracted candidates never directly authorize.
 - Audit checkpoints: chained HMAC-authenticated local files outside SQLite with separate key material, versioned for a later explicitly gated external/KMS anchor.
 - Product posture: both single-user and multi-user modes are supported through typed non-null principals; protected execution never relies on a nullable actor.
+- Audit event schema: logical schema version `1` uses closed fields/enums, typed principals, explicit context/correlation IDs, application-level append-only lifecycle events, ordered global sequencing, strict privacy limits, and Phase 2B-compatible hash placeholders while remaining independent from the future Prisma row layout.
 
 ## Known Limitations
 
@@ -184,6 +197,8 @@ Status: Phase 1 complete; stopped at the end-of-Phase-1 developer review gate be
 - Same-database audit improves local transaction coupling but shares the application DB compromise domain and may create SQLite write contention; independently protected checkpoints and Phase 2 concurrency tests remain required.
 - Local HMAC checkpoints cannot resist compromise of the host, application process, checkpoint history, and key together; deletion of the newest local state may require an independently retained or future external head to expose rollback.
 - Optional MCP, imported-skill, flow, built-in, connector, and scheduled effect paths remain denied/unsupported for governed execution until registered adapters and required tests exist.
+- Phase 2A is a logical documentation contract, not runtime enforcement. Canonical bytes/genesis linkage belong to Phase 2B; Prisma mapping, append/sequence allocation, collision handling, and atomicity belong to Phase 2C; idempotency enforcement belongs to Phase 2D.
+- Plain content hashes can disclose equality and permit guessing of low-entropy inputs; omission and minimization remain the primary privacy controls.
 
 ## Blockers
 
@@ -192,7 +207,8 @@ Status: Phase 1 complete; stopped at the end-of-Phase-1 developer review gate be
 - No technical Phase 0C blocker is known.
 - No Phase 1A blocker remains.
 - No Phase 1A, Phase 1B, or Phase 1C blocker remains.
-- Phase 2 requires separate developer authorization at the end-of-Phase-1 review gate; no Phase 2 implementation has started.
+- No Phase 2A blocker remains.
+- Phase 2B requires separate developer authorization; canonical serialization and hashing have not started.
 
 ## Remaining DoD Items
 
@@ -225,11 +241,17 @@ Status: Phase 1 complete; stopped at the end-of-Phase-1 developer review gate be
 - [x] Resolve audit storage, governance hook, actor context, correlation/idempotency, direct mutations, MCP, imported skills, flow-inner effects, and scheduled execution.
 - [x] Cross-check all ADRs for security, implementation, testing, and rebase consistency.
 - [x] Keep Phase 1C documentation-only, validate the complete diff, and stop at the end-of-Phase-1 review gate.
+- [x] Document the version `1` logical audit event schema and every project-plan field concept or its explicit typed refinement.
+- [x] Document chat, governed-execution, and direct-mutation lifecycles with valid and impossible transitions.
+- [x] Document event types, completion states, principal/delegation/executor context, correlation/idempotency semantics, policy decisions, reason codes, field applicability, and sanitized examples.
+- [x] Document default-off raw content, prohibited secrets, allowlisted bounded metadata, redaction principles, and hash-input meanings without implementing hashing.
+- [x] Define forward-compatible schema evolution and fail-closed invalid-event behavior.
+- [x] Keep Phase 2A documentation-only, validate the complete diff, and stop before Phase 2B.
 
 ## Next Recommended Work Unit
 
-Await explicit developer authorization after the Phase 1 review. Do not begin Phase 2A or create audit schema, migrations, hashing, logging, governance, execution, OpenClaw, frontend-runtime, or cloud implementation before that authorization.
+Await explicit developer authorization to begin Phase 2B. Do not implement canonical serialization, hashing, persistence, idempotency, verification, checkpointing, integration, governance, execution, OpenClaw, frontend-runtime, or cloud work before that authorization.
 
 ## Git State
 
-Phase 1C began from local and remote `main` at `cec53869e223efabc6f2a9edcbb97a35c5b2a48c` with a preserved modified `PROGRESS.md` and untracked `docs/PHASE_1B_COMPLETION_REPORT.md`. The Phase 1C work unit adds only six ADRs and the intentional Phase 1C tracker update. The completion report and its two matching tracker lines remain local and are excluded from the ADR commit. Ignored `.codex-audit-temp/` remains preserved. No reset, clean, discard, force push, upstream write, runtime change, model benchmark, OpenClaw action, cloud action, or external side effect was performed.
+Phase 2A began from local and remote `main` at `45f925ec51e2e644bd5b9d8f97157b70b4a0f9f6` with pre-existing local documentation preserved outside the work unit. The Phase 2A commit contains only the audit schema documentation and intentional Phase 2A tracker update. Ignored `.codex-audit-temp/` remains preserved. No reset, clean, discard, force push, upstream write, runtime implementation, hashing, database change, model benchmark, OpenClaw action, cloud action, or external side effect was performed.
