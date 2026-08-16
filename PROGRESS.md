@@ -15,9 +15,9 @@ Original Sentinel head and safety reference: `1cdee27af70fa96653fa217039d24ca7c9
 
 ## Current Phase
 
-Phase: 1B
-Sub-phase: Threat model
-Status: Phase 1B complete; stopped for developer review before Phase 1C
+Phase: 1C
+Sub-phase: Architecture decision records
+Status: Phase 1 complete; stopped at the end-of-Phase-1 developer review gate before Phase 2
 
 ## Completed This Session
 
@@ -58,6 +58,16 @@ Status: Phase 1B complete; stopped for developer review before Phase 1C
 - Modelled 21 prioritized abuse cases covering fragmented governance paths, cross-workspace access, untrusted model-to-effect transitions, API and scheduled actor ambiguity, WebSocket attachment, indirect prompt injection, MCP/imported/flow bypasses, SSRF, filesystem/process escape, mandatory audit, audit tampering, cross-store recovery, replay/correlation, ingestion, secrets, policy/classifier integrity, Ollama, supply chain, OpenClaw, and future cloud.
 - Defined required fail-closed security properties and mapped high-priority threats to Phase 2, 3, 4, 5, 6, 8, and 9 test ownership without implementing any control.
 - Recorded the architecture decisions Phase 1C must resolve; no ADR, runtime change, dependency, OpenClaw execution, or cloud action was created.
+- Reconciled the preserved post-Phase-1B documentation: the completion report is an intentional but duplicate local console-summary artifact not required by `PROJECT_PLAN.md`, so it remains untracked; its two matching tracker lines remain an unstaged local checkpoint.
+- Revalidated pinned Prisma/SQLite, event-log, browser/API chat, workspace middleware, API-key, AIbitat, WebSocket, MCP, imported-skill, agent-flow, and scheduled-execution seams before deciding architecture.
+- Added six accepted ADRs that resolve audit storage, governance context, execution integration, policy storage, checkpointing, and single-/multi-user posture without changing runtime code.
+- Chose dedicated Sentinel audit tables in the existing application SQLite database, one installation-wide ordered chain, same-database mutation/outcome transactions, and explicit lifecycle records for non-atomic external effects.
+- Chose a shared typed governance-context resolver called by every supported entry adapter, with fail-closed behavior and immutable request policy references.
+- Chose the existing AnythingLLM agent framework as proposal carrier plus registered capability-specific restricted executors for final effects; AIbitat remains a partial interception point, not the final security boundary.
+- Chose immutable versioned structured policies with a mutable workspace activation binding; raw scope and extracted candidates remain untrusted until validated and explicitly activated.
+- Chose chained HMAC-authenticated local checkpoints with separately protected key material and a compatible future Phase 9 external anchor.
+- Chose first-class support for single-user and multi-user modes through typed non-null principals, including a synthetic `instance_owner`, retained API-key principals, delegated agents, schedules, and bounded services.
+- Cross-checked actor, workspace, policy-version, correlation/idempotency, audit, checkpoint, MCP, imported-skill, flow, scheduled, direct-mutation, fail-closed, testing, and rebase semantics across all six ADRs.
 
 ## Tests Executed
 
@@ -100,6 +110,9 @@ Status: Phase 1B complete; stopped for developer review before Phase 1C
 - Phase 1B preflight and Git reconnaissance: passed from clean `main` at the authorized Phase 1A completion commit.
 - Phase 1B source verification: the partial AIbitat dispatcher, UUID WebSocket boundary, API-key actor gap, scheduled owner/workspace gap and automatic approval, MCP transports, direct flow API calls, workspace membership resolver, and best-effort/deletable event logs were confirmed in pinned source.
 - Phase 1B documentation validation: repository-pinned Prettier, relative-link and source-path checks, security-terminology/secret/personal-path scans, core-runtime change check, and `git diff --check` passed.
+- Phase 1C preflight and Git reconnaissance: passed at pushed Phase 1B commit `cec53869e223efabc6f2a9edcbb97a35c5b2a48c`; the two preserved post-Phase-1B local documentation changes were inspected before editing.
+- Phase 1C source verification: Prisma 5.3.1 SQLite datasource/transactions, best-effort/deletable `event_logs`, fragmented chat adapters, API-key actor loss, partial AIbitat dispatch, unauthenticated invocation UUID continuation, MCP transports, in-process imported skills, direct flow API calls, and ownerless auto-approved schedules were reconfirmed.
+- Phase 1C documentation validation: repository-pinned formatting, ADR template/category checks, relative-link, source-path, threat-ID, phase-reference, cross-ADR, terminology, credential/personal-path, file-scope, and `git diff --check` checks passed.
 
 ## Security Checks
 
@@ -114,6 +127,8 @@ Status: Phase 1B complete; stopped for developer review before Phase 1C
 - Phase 1A treats model output, retrieved text, uploaded content, and tool results as untrusted; it distinguishes tool selection from deterministic authorization and records the existing event log as insufficient for mandatory tamper-evident audit.
 - No agent tool, MCP server, imported skill, flow, scheduled job, OpenClaw operation, external integration, or cloud resource was executed for architecture mapping.
 - Phase 1B performed documentation and read-only source analysis only; it preserved model output and all content/tool results as untrusted, deterministic denial as final, mandatory audit failure as fail-closed, and audit claims as tamper-evident within explicit limits.
+- Phase 1C made documentation-only decisions. No runtime, schema, migration, dependency, workflow, OpenClaw, model, or cloud operation was created or executed.
+- All accepted ADRs require non-null actor context, required workspace where applicable, immutable policy reference, deterministic capability/target/parameter denial, mandatory authorization audit before effect, explicit unknown/partial outcomes, and bounded tamper-evident claims.
 
 ## Files Changed
 
@@ -123,6 +138,7 @@ Status: Phase 1B complete; stopped for developer review before Phase 1C
 - Phase 0 identity: Sentinel-first `README.md`; `NOTICE.md`; `docs/UPSTREAM_ANYTHINGLLM.md`; adapted `CONTRIBUTING.md`, `SECURITY.md`, and issue templates; removed misleading upstream funding, sponsor automation, and provider-integration solicitation.
 - Phase 1A: added `docs/CODEBASE_NOTES.md`; updated this tracker. No `server/`, `frontend/`, `collector/`, `docker/`, schema, migration, dependency, or runtime configuration file changed.
 - Phase 1B: added `docs/THREAT_MODEL.md`; updated this tracker. No runtime, schema, migration, dependency, ADR, workflow, or configuration file changed.
+- Phase 1C: added `docs/adr/001-audit-storage.md` through `docs/adr/006-single-vs-multi-user.md`; updated this tracker. No application or infrastructure file changed.
 - Ignored `.codex-audit-temp/` contains preserved generated benchmark JSONL and the earlier audit temp directory; it remains local and was not deleted or committed.
 - Runtime configuration, storage, models, logs, dependencies, and PDF fixture are ignored or outside the repository.
 
@@ -139,6 +155,12 @@ Status: Phase 1B complete; stopped for developer review before Phase 1C
 - Phase 1A observed a partial common AIbitat model-to-plugin dispatch point, multiple chat entry implementations, multiple final-effect executors, and no universal request/effect correlation ID. Architecture choices remain reserved for Phase 1C.
 - Likely low-divergence seams are isolated Sentinel services called by small middleware/chat/AIbitat/executor hooks plus dedicated Prisma and frontend modules; no integration seam was finalized in Phase 1A.
 - Phase 1B establishes required security properties and threat-driven decision inputs only. Phase 1C retains responsibility for choosing actor context, audit/checkpoint storage, governance resolution, proposal/executor, MCP/imported-skill/flow, scheduled, WebSocket, and correlation/idempotency architecture.
+- Audit storage: dedicated Sentinel Prisma tables in the existing application SQLite DB, separate from `event_logs`, with one global chain, mandatory pre-effect authorization events, same-DB mutation/outcome transactions, and explicit external-effect recovery states.
+- Governance hook: one shared typed `GovernanceContextResolver` invoked by every supported entry adapter; uncovered governed paths deny or remain explicitly unsupported.
+- Execution integration: AnythingLLM/AIbitat carries proposals; deterministic Sentinel authorization and registered capability-specific restricted executors control final effects. Unadapted MCP tools, imported JavaScript, effectful flows, built-ins, and ownerless schedules are unavailable for governed execution.
+- Policy storage: dedicated immutable workspace policy versions plus a mutable active binding; raw documents and extracted candidates never directly authorize.
+- Audit checkpoints: chained HMAC-authenticated local files outside SQLite with separate key material, versioned for a later explicitly gated external/KMS anchor.
+- Product posture: both single-user and multi-user modes are supported through typed non-null principals; protected execution never relies on a nullable actor.
 
 ## Known Limitations
 
@@ -159,6 +181,9 @@ Status: Phase 1B complete; stopped for developer review before Phase 1C
 - Route-by-route authorization parity, optional integrations, MCP transports, third-party redirect/redaction behavior, SQLite audit concurrency, and cross-store crash recovery require later focused analysis/testing.
 - A local audit hash chain cannot detect complete database rewriting and hash recomputation without an independently protected checkpoint; control of the database, every checkpoint, and relevant keys remains outside that evidence guarantee.
 - Optional connectors and third-party integrations are not exhaustively threat-tested; every unregistered effect path remains outside governed execution until explicitly inventoried and covered.
+- Same-database audit improves local transaction coupling but shares the application DB compromise domain and may create SQLite write contention; independently protected checkpoints and Phase 2 concurrency tests remain required.
+- Local HMAC checkpoints cannot resist compromise of the host, application process, checkpoint history, and key together; deletion of the newest local state may require an independently retained or future external head to expose rollback.
+- Optional MCP, imported-skill, flow, built-in, connector, and scheduled effect paths remain denied/unsupported for governed execution until registered adapters and required tests exist.
 
 ## Blockers
 
@@ -166,7 +191,8 @@ Status: Phase 1B complete; stopped for developer review before Phase 1C
 - Docker-specific acceptance remains an environment limitation and is not claimed as passed.
 - No technical Phase 0C blocker is known.
 - No Phase 1A blocker remains.
-- No Phase 1B blocker remains. Phase 1C requires separate developer authorization; no ADR or later implementation work has started.
+- No Phase 1A, Phase 1B, or Phase 1C blocker remains.
+- Phase 2 requires separate developer authorization at the end-of-Phase-1 review gate; no Phase 2 implementation has started.
 
 ## Remaining DoD Items
 
@@ -191,11 +217,19 @@ Status: Phase 1B complete; stopped for developer review before Phase 1C
 - [x] Define prioritized abuse cases, required security properties, fail-closed behavior, test ownership, assumptions, non-goals, residual risks, and known unknowns.
 - [x] Record the decisions required from Phase 1C without creating ADRs or implementing runtime controls.
 - [x] Keep Phase 1B documentation-only and update this tracker before the Phase 1C review boundary.
+- [x] Create all six required accepted ADRs with the required template categories.
+- [x] Choose execution integration explicitly and answer every ADR-003 question from `PROJECT_PLAN.md`.
+- [x] Choose single-user versus multi-user posture and typed actor semantics.
+- [x] Choose versioned policy storage and activation semantics.
+- [x] Choose local audit checkpoint strategy and guarantee boundaries.
+- [x] Resolve audit storage, governance hook, actor context, correlation/idempotency, direct mutations, MCP, imported skills, flow-inner effects, and scheduled execution.
+- [x] Cross-check all ADRs for security, implementation, testing, and rebase consistency.
+- [x] Keep Phase 1C documentation-only, validate the complete diff, and stop at the end-of-Phase-1 review gate.
 
 ## Next Recommended Work Unit
 
-Await explicit developer authorization to begin Phase 1C. Do not create ADRs or begin audit, governance, classifier, execution, OpenClaw, frontend-runtime, or cloud implementation before that authorization.
+Await explicit developer authorization after the Phase 1 review. Do not begin Phase 2A or create audit schema, migrations, hashing, logging, governance, execution, OpenClaw, frontend-runtime, or cloud implementation before that authorization.
 
 ## Git State
 
-Phase 1B began from clean local and remote `main` at `11fc66d270a96c33350c3932a8571dc443ab4f32`. Its documentation-only changes are `docs/THREAT_MODEL.md` and this tracker; ignored `.codex-audit-temp/` remains preserved locally. No reset, clean, discard, force push, upstream write, runtime change, model benchmark, OpenClaw action, cloud action, or external side effect was performed.
+Phase 1C began from local and remote `main` at `cec53869e223efabc6f2a9edcbb97a35c5b2a48c` with a preserved modified `PROGRESS.md` and untracked `docs/PHASE_1B_COMPLETION_REPORT.md`. The Phase 1C work unit adds only six ADRs and the intentional Phase 1C tracker update. The completion report and its two matching tracker lines remain local and are excluded from the ADR commit. Ignored `.codex-audit-temp/` remains preserved. No reset, clean, discard, force push, upstream write, runtime change, model benchmark, OpenClaw action, cloud action, or external side effect was performed.
