@@ -15,9 +15,9 @@ Original Sentinel head and safety reference: `1cdee27af70fa96653fa217039d24ca7c9
 
 ## Current Phase
 
-Phase: 2A
-Sub-phase: Audit event schema
-Status: Phase 2A complete; stopped for developer review before Phase 2B
+Phase: 2B
+Sub-phase: Canonical hashing
+Status: Phase 2B complete; stopped for developer review before Phase 2C
 
 ## Completed This Session
 
@@ -74,6 +74,12 @@ Status: Phase 2A complete; stopped for developer review before Phase 2B
 - Defined application-level append-only chat, governance, model, execution, and direct-mutation lifecycle events with explicit pending, completed, failed, denied, partial, and unknown states plus impossible-transition rules.
 - Defined immutable policy-version/hash evidence, deterministic policy/execution decisions, stable reason/rule codes, ordered retrieval evidence, target/proposal/parameter hash placeholders, and default-off raw query/response capture.
 - Defined an allowlist-first redaction policy, prohibited secret/content classes, bounded optional content/attributes, strict unknown-field rejection, forward-compatible versioning, sanitized examples, ADR/threat traceability, and the exact Phase 2B handoff.
+- Entered explicitly authorized Phase 2B and kept the work isolated from Prisma, persistence, sequence allocation, verification, checkpoints, chat, governance, and execution integration.
+- Added a pure schema-version-`1` canonical serializer with recursive UTF-16 key ordering, preserved array order and Unicode code points, explicit JSON escaping, deterministic finite-number handling, strict plain-data types, circular/accessor/prototype defenses, and bounded depth/size failure.
+- Added a pure SHA-256 event-chain helper with exact UTC/sequence/hash-envelope checks, an all-zero genesis link restricted to sequence `"1"`, explicit `event_hash: null` pre-hash input, and inclusion of every other event field without input mutation.
+- Added complete nested/Unicode `MODEL_STARTED` genesis and linked `MODEL_COMPLETED` fixtures with literal reviewed canonical strings and golden hashes `6b610d20a3b9f19db0c4c008f4bcdf3fa5447032605407e260e2b97b25e92421` and `e35b3f704eb077bb206382cf41220825e3f48c76000f248366679d2b23b0aee1`.
+- Added focused tests for all required determinism/mutation cases plus property order, null/absence, empty string, booleans, numbers, Unicode variants, unsupported values, accessors, prototype-looking keys, circular data, schema/timestamp/hash/genesis failures, output format, and non-mutation.
+- Updated `docs/AUDIT_EVENT_SCHEMA.md` with the exact canonical value domain, byte encoding, limits, version dispatch, genesis rule, event-hash contract, golden vectors, and Phase 2C boundary.
 
 ## Tests Executed
 
@@ -122,6 +128,10 @@ Status: Phase 2A complete; stopped for developer review before Phase 2B
 - Phase 2A preflight and Git reconnaissance: passed at pushed Phase 1C commit `45f925ec51e2e644bd5b9d8f97157b70b4a0f9f6`; pre-existing local documentation was inspected and retained outside the Phase 2A work unit.
 - Phase 2A source/convention verification: confirmed pinned UUID v4 usage and dependency, upstream integer workspace/thread/chat/user IDs, UUID agent invocations, absence of a Prisma audit schema, and existing BigInt-to-string JSON handling before choosing logical identifier types.
 - Phase 2A documentation validation: repository-pinned formatting, schema-field/enum/lifecycle/example checks, relative-link and threat/ADR traceability, privacy/terminology/credential/personal-path scans, file-scope checks, and `git diff --check` passed.
+- Phase 2B preflight and Git reconnaissance: passed at pushed Phase 2A commit `ec17de576780f8bb04bab2b62b0fa5e8b952623c`; pre-existing local documentation was inspected and retained outside the Phase 2B work unit.
+- Phase 2B focused Jest under pinned Node 18.18.0: 2/2 audit suites and 48/48 tests passed; all six project-plan cases and malformed/security edge cases are covered.
+- Phase 2B adjacent Jest under pinned Node 18.18.0: audit canonicalization, hash-chain, and upstream `safeJSONStringify` suites passed 3/3 suites and 55/55 tests.
+- Phase 2B static validation: system and pinned-Node syntax checks passed; server-local ESLint passed for both audit modules; repository-pinned Prettier passed for source, tests, fixture, documentation, and this tracker.
 
 ## Security Checks
 
@@ -140,6 +150,9 @@ Status: Phase 2A complete; stopped for developer review before Phase 2B
 - All accepted ADRs require non-null actor context, required workspace where applicable, immutable policy reference, deterministic capability/target/parameter denial, mandatory authorization audit before effect, explicit unknown/partial outcomes, and bounded tamper-evident claims.
 - Phase 2A stores no raw content or secrets by default, keeps model/classifier evidence separate from deterministic decisions, and makes malformed protected events fail closed without falling back to `event_logs`.
 - No hashing, canonicalization, chain calculation, database write, migration, chat/AIbitat hook, governance engine, execution, OpenClaw, model call, or cloud action was implemented or run.
+- Phase 2B canonicalization rejects undefined, non-finite/unsafe numeric values, BigInt, functions, symbols, accessors, custom/runtime objects, sparse/extended arrays, circular data, bad timestamps, malformed chain links, unknown schema versions, and populated/missing pre-hash `event_hash` without fallback or logging event content.
+- Canonical output uses no randomness, ambient environment, locale, timezone, model, external service, or dependency beyond Node built-ins; no raw content storage or privacy policy was broadened.
+- No database, migration, append, sequence allocation, transaction, verifier, checkpoint, chat, AIbitat, governance, MCP, flow, schedule, OpenClaw, frontend, or cloud integration was introduced.
 
 ## Files Changed
 
@@ -151,6 +164,7 @@ Status: Phase 2A complete; stopped for developer review before Phase 2B
 - Phase 1B: added `docs/THREAT_MODEL.md`; updated this tracker. No runtime, schema, migration, dependency, ADR, workflow, or configuration file changed.
 - Phase 1C: added `docs/adr/001-audit-storage.md` through `docs/adr/006-single-vs-multi-user.md`; updated this tracker. No application or infrastructure file changed.
 - Phase 2A: added `docs/AUDIT_EVENT_SCHEMA.md`; updated this tracker. No runtime code, test code, Prisma schema, migration, dependency, or integration hook changed.
+- Phase 2B: added `server/utils/audit/canonicalize.js`, `server/utils/audit/hashChain.js`, focused audit tests and golden fixtures; updated `docs/AUDIT_EVENT_SCHEMA.md` and this tracker. No Prisma schema, migration, dependency, database, or runtime integration hook changed.
 - Ignored `.codex-audit-temp/` contains preserved generated benchmark JSONL and the earlier audit temp directory; it remains local and was not deleted or committed.
 - Runtime configuration, storage, models, logs, dependencies, and PDF fixture are ignored or outside the repository.
 
@@ -174,6 +188,7 @@ Status: Phase 2A complete; stopped for developer review before Phase 2B
 - Audit checkpoints: chained HMAC-authenticated local files outside SQLite with separate key material, versioned for a later explicitly gated external/KMS anchor.
 - Product posture: both single-user and multi-user modes are supported through typed non-null principals; protected execution never relies on a nullable actor.
 - Audit event schema: logical schema version `1` uses closed fields/enums, typed principals, explicit context/correlation IDs, application-level append-only lifecycle events, ordered global sequencing, strict privacy limits, and Phase 2B-compatible hash placeholders while remaining independent from the future Prisma row layout.
+- Canonical hashing: schema-version-`1` events use explicitly escaped canonical JSON with recursively sorted object keys and preserved arrays; SHA-256 covers UTF-8 bytes including `schema_version` and `previous_event_hash`, excludes only a required-null `event_hash`, and returns lowercase 64-hex output.
 
 ## Known Limitations
 
@@ -199,6 +214,8 @@ Status: Phase 2A complete; stopped for developer review before Phase 2B
 - Optional MCP, imported-skill, flow, built-in, connector, and scheduled effect paths remain denied/unsupported for governed execution until registered adapters and required tests exist.
 - Phase 2A is a logical documentation contract, not runtime enforcement. Canonical bytes/genesis linkage belong to Phase 2B; Prisma mapping, append/sequence allocation, collision handling, and atomicity belong to Phase 2C; idempotency enforcement belongs to Phase 2D.
 - Plain content hashes can disclose equality and permit guessing of low-entropy inputs; omission and minimization remain the primary privacy controls.
+- Phase 2B validates the chain-hashing envelope and unsafe runtime values, not the complete Phase 2A closed event schema; event construction must apply full field/enum/lifecycle/privacy validation before hashing.
+- The all-zero genesis sentinel is unambiguous only together with the enforced sequence-`"1"` rule. Phase 2C still owns atomic sequence assignment and parent-head selection; Phase 2E owns stored-chain verification.
 
 ## Blockers
 
@@ -208,7 +225,8 @@ Status: Phase 2A complete; stopped for developer review before Phase 2B
 - No Phase 1A blocker remains.
 - No Phase 1A, Phase 1B, or Phase 1C blocker remains.
 - No Phase 2A blocker remains.
-- Phase 2B requires separate developer authorization; canonical serialization and hashing have not started.
+- No Phase 2B blocker remains.
+- Phase 2C requires separate developer authorization; Prisma audit storage, migrations, sequence allocation, atomic append, and locking have not started.
 
 ## Remaining DoD Items
 
@@ -247,11 +265,16 @@ Status: Phase 2A complete; stopped for developer review before Phase 2B
 - [x] Document default-off raw content, prohibited secrets, allowlisted bounded metadata, redaction principles, and hash-input meanings without implementing hashing.
 - [x] Define forward-compatible schema evolution and fail-closed invalid-event behavior.
 - [x] Keep Phase 2A documentation-only, validate the complete diff, and stop before Phase 2B.
+- [x] Implement the schema-version-`1` canonical serializer with explicit JSON-compatible value, Unicode, number, timestamp, ordering, and failure rules.
+- [x] Implement pure SHA-256 event hashing with `schema_version` and `previous_event_hash` included, `event_hash` excluded, strict lowercase hash format, and deterministic genesis linkage.
+- [x] Store human-reviewable deterministic nested/Unicode genesis and second-chain fixtures with literal canonical strings and golden SHA-256 vectors.
+- [x] Pass the six project-plan-required tests plus property-order, null/absence, primitive, unsupported-value, prototype, circular, schema, timestamp, genesis, self-hash, output-format, and non-mutation cases.
+- [x] Keep Phase 2B free of DB integration, dependencies, runtime hooks, and later-phase implementation; update documentation and this tracker.
 
 ## Next Recommended Work Unit
 
-Await explicit developer authorization to begin Phase 2B. Do not implement canonical serialization, hashing, persistence, idempotency, verification, checkpointing, integration, governance, execution, OpenClaw, frontend-runtime, or cloud work before that authorization.
+Await explicit developer authorization to begin Phase 2C. Do not implement Prisma audit models, migrations, atomic append, sequence allocation, locking, idempotency, verification, checkpointing, integration, governance, execution, OpenClaw, frontend-runtime, or cloud work before that authorization.
 
 ## Git State
 
-Phase 2A began from local and remote `main` at `45f925ec51e2e644bd5b9d8f97157b70b4a0f9f6` with pre-existing local documentation preserved outside the work unit. The Phase 2A commit contains only the audit schema documentation and intentional Phase 2A tracker update. Ignored `.codex-audit-temp/` remains preserved. No reset, clean, discard, force push, upstream write, runtime implementation, hashing, database change, model benchmark, OpenClaw action, cloud action, or external side effect was performed.
+Phase 2B began from local and remote `main` at `ec17de576780f8bb04bab2b62b0fa5e8b952623c` with pre-existing local documentation preserved outside the work unit. The Phase 2B work unit contains only pure canonical/hash modules, focused fixtures/tests, audit-schema documentation, and the intentional tracker update. Ignored `.codex-audit-temp/` remains preserved. No reset, clean, discard, force push, upstream write, dependency, database change, runtime integration, model benchmark, OpenClaw action, cloud action, or external side effect was performed.

@@ -870,8 +870,9 @@ phases identified in the accepted ADRs and threat model.
 - Context references and bounded attributes preserve provenance but do not prove
   that an external MCP/tool/system reported truthfully.
 - The final Prisma columns/indexes and transaction layout are Phase 2C work.
-- Event and content hash encoding, canonical null/omission rules, Unicode, and
-  genesis linkage are deliberately unresolved until Phase 2B.
+- Content-specific normalization remains owned by its producing phase. Event
+  canonicalization, hash encoding, null/omission rules, Unicode, and genesis
+  linkage are fixed by section 21.
 - Event-specific direct-mutation resource and operation allowlists remain later
   integration work within the fixed version `1` field semantics.
 
@@ -902,3 +903,119 @@ the accepted event meaning during hashing implementation.
 - [x] Event types documented: section 9.
 - [x] Forward-compatible schema version exists: section 3 defines version `1`.
 - [x] `PROGRESS.md` updated in the Phase 2A work unit.
+
+## 21. Phase 2B canonicalization and chain-hash specification
+
+Phase 2B implements the schema-version-`1` canonicalizer in
+`server/utils/audit/canonicalize.js` and the event-chain helper in
+`server/utils/audit/hashChain.js`. These are pure in-memory utilities: they do
+not allocate IDs or sequences, read a database head, append rows, verify stored
+chains, or emit runtime audit events.
+
+### 21.1 Canonical value domain
+
+Canonical input is limited to `null`, strings, booleans, finite JSON numbers,
+dense arrays, and plain objects whose prototype is either `Object.prototype` or
+`null`. Only enumerable own string-keyed data properties are accepted. Accessor
+properties are rejected without invocation. Functions, symbols and symbol
+properties, `undefined`, `BigInt`, sparse or extended arrays, `Date`, `Buffer`,
+typed arrays, `Map`, `Set`, regular expressions, and custom class instances are
+rejected. Circular references are rejected deterministically.
+
+The canonicalizer provides defense-in-depth limits of 64 nested levels, 10,000
+array/object entries, 1 MiB per input string, and 2 MiB of final canonical UTF-8
+bytes. The stricter Phase 2A event-field and collection limits remain
+authoritative and must be validated before hashing; these broader serializer
+limits do not broaden the event schema. Errors are stable local codes and never
+fall back to `JSON.stringify` or another hash input.
+
+### 21.2 Canonical encoding rules
+
+- Output from `canonicalize` is a JSON-compatible JavaScript string;
+  `canonicalizeToBuffer` explicitly encodes it as UTF-8 bytes.
+- Object keys are recursively sorted by ascending UTF-16 code-unit comparison.
+  Object construction and insertion order never affect output. Inherited
+  properties are ignored because non-plain objects are rejected and only own
+  descriptors are read.
+- Array order is preserved exactly. Canonicalization never sorts or otherwise
+  infers the semantics of arrays such as delegation chains, context references,
+  retrieval chunk IDs, or policy-rule IDs.
+- `null`, `true`, `false`, and the empty string have distinct literal forms.
+  A present null field differs from an absent field. Phase 2A requires all
+  version-`1` event keys, so a later schema validator must reject absent required
+  keys before hashing.
+- Strings preserve their Unicode code points; NFC/NFD normalization is not
+  performed. Valid surrogate pairs are emitted as their characters. Lone
+  surrogates are escaped as lowercase `\\uXXXX`. Quotation marks, backslashes,
+  control characters, newlines, and tabs use explicit JSON escaping. Canonical
+  bytes are UTF-8 and are independent of locale or machine timezone.
+- Numbers must be finite. Safe integers use their decimal form, finite
+  non-integers use ECMAScript `Number` string form, and negative zero is encoded
+  as `0`. Unsafe integers, `NaN`, and positive/negative infinity are rejected.
+  Security-sensitive large integers such as `sequence_number` remain Phase 2A
+  decimal strings and are never converted to `Number`.
+- Timestamp objects and alternative timestamp strings are not converted.
+  `canonicalizeAuditEvent` accepts only the Phase 2A server-controlled
+  `YYYY-MM-DDTHH:mm:ss.sssZ` UTC string whose calendar value round-trips exactly.
+- Own keys named `__proto__`, `constructor`, or `prototype` are serialized as
+  ordinary strings without merging or assignment. They cannot alter a
+  prototype during canonicalization.
+
+### 21.3 Event-chain input and genesis
+
+`canonicalizeAuditEvent` supports only integer `schema_version: 1`; other
+versions fail closed so future schema versions require an explicit reviewed
+canonicalizer. It requires a positive decimal-string sequence and validates the
+chain link as exactly 64 lowercase hexadecimal characters.
+
+The named `GENESIS_PREVIOUS_HASH` value is exactly 64 ASCII zero characters:
+
+```text
+0000000000000000000000000000000000000000000000000000000000000000
+```
+
+Only `sequence_number: "1"` may use this sentinel. Sequence `"1"` must use it,
+and later sequences must not. This sequence binding makes the sentinel
+unambiguous even though it has the same lexical shape as a SHA-256 digest.
+
+Hash construction accepts a complete pre-hash event whose own enumerable
+`event_hash` field is explicitly `null`. A populated or absent `event_hash`
+fails; callers cannot accidentally hash a stored hash value. The canonical hash
+input copies every other own field without mutation. Consequently
+`previous_event_hash`, `schema_version`, and every other security-relevant event
+field are included, while only `event_hash` is excluded.
+
+### 21.4 Event-hash algorithm and compatibility vectors
+
+`computeAuditEventHash` hashes the canonical UTF-8 bytes with Node's built-in
+SHA-256 and returns exactly 64 lowercase hexadecimal characters. It adds no
+newline, prefix, salt, timestamp, randomness, environment value, or locale data.
+This event-chain SHA-256 remains separate from ADR-005 checkpoint HMAC.
+
+Reviewed deterministic fixtures live in
+`server/__tests__/utils/audit/fixtures/v1GoldenVectors.js`. They contain literal
+canonical strings and hashes for a complete Unicode/nested genesis event and a
+second event linked to it:
+
+| Fixture         | Expected SHA-256                                                   |
+| --------------- | ------------------------------------------------------------------ |
+| `GENESIS_EVENT` | `6b610d20a3b9f19db0c4c008f4bcdf3fa5447032605407e260e2b97b25e92421` |
+| `SECOND_EVENT`  | `e35b3f704eb077bb206382cf41220825e3f48c76000f248366679d2b23b0aee1` |
+
+The tests independently apply Node `crypto` to each literal golden canonical
+string before checking the production helper. Any change to canonical bytes or
+these vectors requires explicit schema/canonicalization compatibility review;
+future versions must not silently reinterpret version `1` events.
+
+### 21.5 Boundaries and handoff
+
+The Phase 2B helper validates the hashing envelope (schema version, sequence,
+timestamp, previous hash, and pre-hash `event_hash` state) and rejects unsafe
+runtime values. It is not the complete Phase 2A event-schema validator. Later
+event construction must enforce the closed field list, enums, event-specific
+requirements, privacy rules, and byte/collection limits before invoking it.
+
+Phase 2C may use these pure functions only inside its atomic sequence/head
+transaction. Phase 2B does not implement Prisma models, migrations, head lookup,
+sequence allocation, append, idempotency, full-chain verification,
+checkpointing, chat hooks, or execution hooks.
