@@ -11,7 +11,7 @@ const PRISMA_CLI = path.join(
 );
 const TEST_ROOT = path.join(
   REPOSITORY_ROOT,
-  ".codex-audit-temp/phase-2c-migration-jest"
+  `.codex-audit-temp/phase-2c-migration-jest-${process.pid}`
 );
 const PHASE_2C_MIGRATION = "20260817000000_sentinel_audit_storage";
 
@@ -78,6 +78,12 @@ describe("Sentinel audit migration", () => {
       currentSequence: 0n,
       currentEventHash: "0".repeat(64),
     });
+    await expect(
+      client.$queryRawUnsafe("PRAGMA integrity_check")
+    ).resolves.toEqual([{ integrity_check: "ok" }]);
+    await expect(
+      client.$queryRawUnsafe("PRAGMA foreign_key_check")
+    ).resolves.toEqual([]);
     await client.$disconnect();
   }, 60_000);
 
@@ -107,6 +113,12 @@ describe("Sentinel audit migration", () => {
       })
     ).resolves.toMatchObject({ value: "preserve-me" });
     await expect(client.sentinel_audit_events.count()).resolves.toBe(0);
+    await expect(
+      client.$queryRawUnsafe("PRAGMA integrity_check")
+    ).resolves.toEqual([{ integrity_check: "ok" }]);
+    await expect(
+      client.$queryRawUnsafe("PRAGMA foreign_key_check")
+    ).resolves.toEqual([]);
     await client.$disconnect();
   }, 60_000);
 });

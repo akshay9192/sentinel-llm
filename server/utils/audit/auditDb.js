@@ -88,6 +88,35 @@ function assertStoredHead(latest, priorSequence, priorHash) {
     latest.eventHash !== priorHash
   )
     throw storageFailure("AUDIT_STORAGE_HEAD_MISMATCH");
+
+  try {
+    const storedEvent = JSON.parse(latest.eventJson);
+    if (
+      canonicalize(storedEvent) !== latest.eventJson ||
+      storedEvent.sequence_number !== priorSequence.toString(10) ||
+      storedEvent.event_hash !== latest.eventHash
+    )
+      throw storageFailure("AUDIT_STORAGE_HEAD_MISMATCH");
+    validateAuditEvent(storedEvent);
+    const expectedHash = computeAuditEventHash({
+      ...storedEvent,
+      event_hash: null,
+    });
+    if (expectedHash !== latest.eventHash)
+      throw storageFailure("AUDIT_STORAGE_HEAD_MISMATCH");
+    const expectedRow = toPersistenceRow(storedEvent);
+    for (const [field, expectedValue] of Object.entries(expectedRow)) {
+      if (latest[field] !== expectedValue)
+        throw storageFailure("AUDIT_STORAGE_HEAD_MISMATCH");
+    }
+  } catch (error) {
+    if (
+      error instanceof AuditStorageError &&
+      error.code === "AUDIT_STORAGE_HEAD_MISMATCH"
+    )
+      throw error;
+    throw storageFailure("AUDIT_STORAGE_HEAD_MISMATCH", error);
+  }
 }
 
 function toPersistenceRow(event) {
@@ -159,7 +188,6 @@ function createAuditStore({
 
           const latest = await tx.sentinel_audit_events.findFirst({
             orderBy: { sequenceNumber: "desc" },
-            select: { sequenceNumber: true, eventHash: true },
           });
           assertStoredHead(latest, priorSequence, state.currentEventHash);
 

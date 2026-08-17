@@ -1,11 +1,14 @@
 const fs = require("fs");
 const path = require("path");
+const { spawn } = require("child_process");
 const { PrismaClient } = require("@prisma/client");
 const {
   AuditStorageError,
   createAuditStore,
+  toPersistenceRow,
 } = require("../../../utils/audit/auditDb");
 const { AuditValidationError } = require("../../../utils/audit/validateEvent");
+const { computeAuditEventHash } = require("../../../utils/audit/hashChain");
 const { GENESIS_EVENT } = require("./fixtures/v1GoldenVectors");
 
 const REPOSITORY_ROOT = path.resolve(__dirname, "../../../..");
@@ -13,7 +16,10 @@ const MIGRATION_PATH = path.join(
   REPOSITORY_ROOT,
   "server/prisma/migrations/20260817000000_sentinel_audit_storage/migration.sql"
 );
-const TEST_ROOT = path.join(REPOSITORY_ROOT, ".codex-audit-temp/phase-2c-jest");
+const TEST_ROOT = path.join(
+  REPOSITORY_ROOT,
+  `.codex-audit-temp/phase-2c-jest-${process.pid}`
+);
 
 function databaseUrl(databasePath) {
   return `file:${databasePath.replace(/\\/g, "/")}`;
@@ -205,6 +211,51 @@ describe("Sentinel atomic audit storage", () => {
     });
   });
 
+  test("obvious fake credentials are rejected without persistence or error leakage", async () => {
+    const { client } = await createTestDatabase("secret-canaries");
+    clients.push(client);
+    const store = createAuditStore({ prismaClient: client });
+    const canaries = [
+      "Bearer SENTINEL_FAKE_BEARER_4f87d2",
+      "password=SENTINEL_FAKE_PASSWORD_91ac",
+      "-----BEGIN PRIVATE KEY-----\nSENTINEL_FAKE_KEY\n-----END PRIVATE KEY-----",
+      "https://fixture-user:SENTINEL_FAKE_URL_PASSWORD@example.invalid/path",
+    ];
+
+    for (const [index, canary] of canaries.entries()) {
+      let error;
+      try {
+        await store.append(
+          makeDraft({
+            event_id: eventId(8000 + index),
+            request_id: eventId(8100 + index),
+            attributes: {
+              ...makeDraft().attributes,
+              operation: canary,
+            },
+          })
+        );
+      } catch (caught) {
+        error = caught;
+      }
+      expect(error).toMatchObject({
+        name: "AuditValidationError",
+        code: "AUDIT_SCHEMA_PROHIBITED_SECRET",
+      });
+      expect(String(error)).not.toContain(canary);
+      expect(JSON.stringify(error)).not.toContain(canary);
+    }
+
+    await expect(client.sentinel_audit_events.count()).resolves.toBe(0);
+    const storedText = await client.$queryRawUnsafe(
+      "SELECT CAST(GROUP_CONCAT(event_json) AS TEXT) AS payload FROM sentinel_audit_events"
+    );
+    expect(storedText[0].payload).toBeNull();
+    await expect(
+      client.sentinel_audit_chain_state.findUnique({ where: { id: 1 } })
+    ).resolves.toMatchObject({ currentSequence: 0n });
+  });
+
   test("a duplicate event ID fails without consuming a sequence", async () => {
     const { client } = await createTestDatabase("duplicate-event-id");
     clients.push(client);
@@ -263,6 +314,72 @@ describe("Sentinel atomic audit storage", () => {
     await expect(
       store.append(
         makeDraft({ event_id: eventId(5), request_id: eventId(5005) })
+      )
+    ).rejects.toMatchObject({ code: "AUDIT_STORAGE_HEAD_MISMATCH" });
+    await expect(client.sentinel_audit_events.count()).resolves.toBe(1);
+  });
+
+  test("latest canonical payload tampering is detected before extending the chain", async () => {
+    const { client } = await createTestDatabase("latest-payload-tamper");
+    clients.push(client);
+    const store = createAuditStore({ prismaClient: client });
+    const first = await store.append(makeDraft());
+    const tampered = { ...first, principal_id: "attacker" };
+    await client.sentinel_audit_events.update({
+      where: { eventId: first.event_id },
+      data: { eventJson: JSON.stringify(tampered) },
+    });
+
+    await expect(
+      store.append(
+        makeDraft({ event_id: eventId(51), request_id: eventId(5101) })
+      )
+    ).rejects.toMatchObject({ code: "AUDIT_STORAGE_HEAD_MISMATCH" });
+    await expect(client.sentinel_audit_events.count()).resolves.toBe(1);
+    await expect(
+      client.sentinel_audit_chain_state.findUnique({ where: { id: 1 } })
+    ).resolves.toMatchObject({
+      currentSequence: 1n,
+      currentEventHash: first.event_hash,
+    });
+  });
+
+  test("latest indexed-column tampering is detected before extending the chain", async () => {
+    const { client } = await createTestDatabase("latest-column-tamper");
+    clients.push(client);
+    const store = createAuditStore({ prismaClient: client });
+    const first = await store.append(makeDraft());
+    await client.sentinel_audit_events.update({
+      where: { eventId: first.event_id },
+      data: { principalId: "attacker" },
+    });
+
+    await expect(
+      store.append(
+        makeDraft({ event_id: eventId(53), request_id: eventId(5301) })
+      )
+    ).rejects.toMatchObject({ code: "AUDIT_STORAGE_HEAD_MISMATCH" });
+    await expect(client.sentinel_audit_events.count()).resolves.toBe(1);
+  });
+
+  test("coordinated latest-row and singleton hash tampering is detected", async () => {
+    const { client } = await createTestDatabase("coordinated-head-tamper");
+    clients.push(client);
+    const store = createAuditStore({ prismaClient: client });
+    const first = await store.append(makeDraft());
+    const forgedHash = "f".repeat(64);
+    await client.sentinel_audit_events.update({
+      where: { eventId: first.event_id },
+      data: { eventHash: forgedHash },
+    });
+    await client.sentinel_audit_chain_state.update({
+      where: { id: 1 },
+      data: { currentEventHash: forgedHash },
+    });
+
+    await expect(
+      store.append(
+        makeDraft({ event_id: eventId(52), request_id: eventId(5201) })
       )
     ).rejects.toMatchObject({ code: "AUDIT_STORAGE_HEAD_MISMATCH" });
     await expect(client.sentinel_audit_events.count()).resolves.toBe(1);
@@ -344,6 +461,9 @@ describe("Sentinel atomic audit storage", () => {
     );
     expect(recovery.sequence_number).toBe(String(events.length + 1));
     expect(recovery.previous_event_hash).toBe(ordered.at(-1).event_hash);
+    await expect(
+      client.$queryRawUnsafe("PRAGMA integrity_check")
+    ).resolves.toEqual([{ integrity_check: "ok" }]);
   }, 30_000);
 
   test("an explicitly held SQLite writer lock fails closed and recovery has no gap", async () => {
@@ -425,31 +545,108 @@ describe("Sentinel atomic audit storage", () => {
     );
     expect(third.sequence_number).toBe("3");
     expect(third.previous_event_hash).toBe(second.event_hash);
+    await expect(
+      restored.$queryRawUnsafe("PRAGMA integrity_check")
+    ).resolves.toEqual([{ integrity_check: "ok" }]);
+    await expect(
+      restored.$queryRawUnsafe("PRAGMA foreign_key_check")
+    ).resolves.toEqual([]);
   });
+
+  test("process termination during an open write transaction leaves no partial append state", async () => {
+    const fixture = await createTestDatabase("process-crash");
+    clients.push(fixture.client);
+    const childScript = String.raw`
+      const { PrismaClient } = require("@prisma/client");
+      const client = new PrismaClient({ datasources: { db: { url: process.env.SENTINEL_CRASH_DB_URL } } });
+      client.$transaction(async (tx) => {
+        await tx.sentinel_audit_chain_state.update({ where: { id: 1 }, data: { currentSequence: { increment: 1n } } });
+        process.stdout.write("WRITE_LOCKED\n");
+        await new Promise(() => {});
+      }, { maxWait: 5000, timeout: 60000 }).catch((error) => {
+        process.stderr.write(String(error));
+        process.exitCode = 1;
+      });
+    `;
+    const child = spawn(process.execPath, ["-e", childScript], {
+      cwd: path.join(REPOSITORY_ROOT, "server"),
+      env: {
+        ...process.env,
+        SENTINEL_CRASH_DB_URL: databaseUrl(fixture.databasePath),
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderr = "";
+    let stdout = "";
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString("utf8");
+    });
+    const childExited = new Promise((resolve) => child.once("exit", resolve));
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        settled = true;
+        child.kill();
+        reject(new Error(`CRASH_FIXTURE_TIMEOUT:${stderr}`));
+      }, 10_000);
+      child.stdout.on("data", (chunk) => {
+        stdout += chunk.toString("utf8");
+        if (!settled && stdout.includes("WRITE_LOCKED")) {
+          settled = true;
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+      child.once("error", (error) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(error);
+        }
+      });
+      child.once("exit", (code) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(new Error(`CRASH_FIXTURE_EARLY_EXIT:${code}:${stderr}`));
+        }
+      });
+    });
+    child.kill();
+    await childExited;
+
+    await expect(fixture.client.sentinel_audit_events.count()).resolves.toBe(0);
+    await expect(
+      fixture.client.sentinel_audit_chain_state.findUnique({ where: { id: 1 } })
+    ).resolves.toMatchObject({
+      currentSequence: 0n,
+      currentEventHash: "0".repeat(64),
+    });
+    const recovered = await createAuditStore({
+      prismaClient: fixture.client,
+    }).append(makeDraft());
+    expect(recovered.sequence_number).toBe("1");
+    await expect(
+      fixture.client.$queryRawUnsafe("PRAGMA integrity_check")
+    ).resolves.toEqual([{ integrity_check: "ok" }]);
+  }, 30_000);
 
   test("sequence persistence remains exact above Number.MAX_SAFE_INTEGER", async () => {
     const { client } = await createTestDatabase("bigint-sequence");
     clients.push(client);
     const priorSequence = 9_007_199_254_740_992n;
-    const priorHash = "a".repeat(64);
+    const preHashPrior = {
+      ...GENESIS_EVENT,
+      attributes: { ...GENESIS_EVENT.attributes, duration_ms: 1 },
+      sequence_number: priorSequence.toString(10),
+      timestamp_utc: "2026-08-17T00:00:00.000Z",
+      previous_event_hash: "b".repeat(64),
+      event_hash: null,
+    };
+    const priorHash = computeAuditEventHash(preHashPrior);
+    const priorEvent = { ...preHashPrior, event_hash: priorHash };
     await client.sentinel_audit_events.create({
-      data: {
-        eventId: eventId(9000),
-        schemaVersion: 1,
-        sequenceNumber: priorSequence,
-        timestampUtc: "2026-08-17T00:00:00.000Z",
-        eventType: "MODEL_STARTED",
-        completionState: "PENDING",
-        principalType: "service",
-        principalId: "fixture",
-        requestId: eventId(9001),
-        correlationId: eventId(9002),
-        policyDecision: "NOT_APPLICABLE",
-        executionDecision: "NOT_REQUESTED",
-        previousEventHash: "b".repeat(64),
-        eventHash: priorHash,
-        eventJson: "{}",
-      },
+      data: toPersistenceRow(priorEvent),
     });
     await client.sentinel_audit_chain_state.update({
       where: { id: 1 },
@@ -463,6 +660,70 @@ describe("Sentinel atomic audit storage", () => {
       orderBy: { sequenceNumber: "desc" },
     });
     expect(latest.sequenceNumber).toBe(9_007_199_254_740_993n);
+  });
+
+  test("signed SQLite sequence exhaustion fails without wrapping or advancing state", async () => {
+    const { client } = await createTestDatabase("sequence-exhaustion");
+    clients.push(client);
+    const maximum = 9_223_372_036_854_775_807n;
+    const priorHash = "a".repeat(64);
+    await client.sentinel_audit_events.create({
+      data: {
+        eventId: eventId(9100),
+        schemaVersion: 1,
+        sequenceNumber: maximum,
+        timestampUtc: "2026-08-17T00:00:00.000Z",
+        eventType: "MODEL_STARTED",
+        completionState: "PENDING",
+        principalType: "service",
+        principalId: "fixture",
+        requestId: eventId(9101),
+        correlationId: eventId(9102),
+        policyDecision: "NOT_APPLICABLE",
+        executionDecision: "NOT_REQUESTED",
+        previousEventHash: "b".repeat(64),
+        eventHash: priorHash,
+        eventJson: "{}",
+      },
+    });
+    await client.sentinel_audit_chain_state.update({
+      where: { id: 1 },
+      data: { currentSequence: maximum, currentEventHash: priorHash },
+    });
+
+    await expect(
+      createAuditStore({ prismaClient: client }).append(
+        makeDraft({ event_id: eventId(9103), request_id: eventId(9104) })
+      )
+    ).rejects.toMatchObject({
+      name: "AuditStorageError",
+      code: "AUDIT_STORAGE_APPEND_FAILED",
+    });
+    await expect(client.sentinel_audit_events.count()).resolves.toBe(1);
+    await expect(
+      client.sentinel_audit_chain_state.findUnique({ where: { id: 1 } })
+    ).resolves.toMatchObject({
+      currentSequence: maximum,
+      currentEventHash: priorHash,
+    });
+  });
+
+  test("an invalid server clock rolls back allocated sequence and exposes no timestamp", async () => {
+    const { client } = await createTestDatabase("invalid-clock");
+    clients.push(client);
+    const store = createAuditStore({
+      prismaClient: client,
+      now: () => new Date(Number.NaN),
+    });
+
+    await expect(store.append(makeDraft())).rejects.toMatchObject({
+      name: "AuditStorageError",
+      code: "AUDIT_STORAGE_INVALID_CLOCK",
+    });
+    await expect(client.sentinel_audit_events.count()).resolves.toBe(0);
+    await expect(
+      client.sentinel_audit_chain_state.findUnique({ where: { id: 1 } })
+    ).resolves.toMatchObject({ currentSequence: 0n });
   });
 
   test("audit rows survive deletion of referenced application users and workspaces", async () => {
@@ -485,6 +746,9 @@ describe("Sentinel atomic audit storage", () => {
     await client.$executeRawUnsafe('DELETE FROM "workspaces" WHERE "id" = 7');
     await client.$executeRawUnsafe('DELETE FROM "users" WHERE "id" = 42');
     await expect(client.sentinel_audit_events.count()).resolves.toBe(1);
+    await expect(
+      client.$queryRawUnsafe("PRAGMA foreign_key_check")
+    ).resolves.toEqual([]);
   });
 
   test("database constraints reject forged duplicate sequence, event ID, and hash", async () => {

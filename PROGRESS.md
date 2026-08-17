@@ -144,6 +144,11 @@ Status: Phase 2C complete; stopped for developer review before Phase 2D
 - Phase 2C storage tests passed for genesis/linkage, exact persisted JSON/head state, caller-metadata rejection, mutation/accessor defense, 17 malformed-event attacks, duplicate event-ID rollback, injected post-insert rollback, missing/head-tampered state, 12 independent-client cross-workspace contenders, explicit held lock, restart/restore, unsafe-Number-range sequence, historical-reference survival, and DB constraints.
 - Phase 2C migration tests applied all migrations to a fresh isolated database, repeated deploy with no pending work, upgraded a pinned pre-Phase-2C schema, and preserved an existing application marker row.
 - Phase 2C static validation: Prisma 5.3.1 schema validation/client generation, pinned-Node syntax checks, server-local ESLint, repository-pinned Prettier, and `git diff --check` passed. The root ESLint configuration was not used for server files because its React plugin crashes under ESLint 9; the authoritative server-local configuration passed.
+- Phase 2C hardening found and fixed three defects: append now authenticates the latest canonical payload/hash and duplicated indexed columns before extending it; obvious credential-shaped values fail closed without persistence/error leakage; and process-unique test roots prevent parallel SQLite fixture collisions.
+- Phase 2C hardening focused/adjacent acceptance passed 5/5 suites and 78/78 tests; the complete server regression set passed 23/23 suites and 234/234 tests under pinned Node 18.18.0.
+- Race-sensitive concurrency/held-lock/process-termination tests passed 20/20 fresh-process repetitions (12 contenders, four independent Prisma clients, two workspaces per iteration). Two simultaneous complete storage suites passed 20/20 tests each.
+- Fresh/repeated/pinned-upgrade migration coverage passed 5/5 fresh-process repetitions. SQLite `integrity_check` returned `ok` and `foreign_key_check` returned no violations across fresh/upgrade migration, concurrency, process-crash recovery, restore, and historical-reference cases.
+- The high-confidence tracked-file credential scan found zero unclassified hits; deliberate `SENTINEL_FAKE_*` values remain test-only canaries. Exact commands, fault injections, defects, regressions, and limitations are recorded in `docs/PHASE_2C_COMPLETION_REPORT.md`.
 
 ## Security Checks
 
@@ -181,6 +186,7 @@ Status: Phase 2C complete; stopped for developer review before Phase 2D
 - Phase 2A: added `docs/AUDIT_EVENT_SCHEMA.md`; updated this tracker. No runtime code, test code, Prisma schema, migration, dependency, or integration hook changed.
 - Phase 2B: added `server/utils/audit/canonicalize.js`, `server/utils/audit/hashChain.js`, focused audit tests and golden fixtures; updated `docs/AUDIT_EVENT_SCHEMA.md` and this tracker. No Prisma schema, migration, dependency, database, or runtime integration hook changed.
 - Phase 2C: added dedicated Prisma audit models and migration, `server/utils/audit/validateEvent.js`, `server/utils/audit/auditDb.js`, atomic-storage and migration tests; updated `docs/AUDIT_EVENT_SCHEMA.md` and this tracker. No dependency, route, chat hook, governance, execution, frontend, OpenClaw, checkpoint, or cloud file changed.
+- Phase 2C hardening: strengthened current-head authentication and secret-value rejection, expanded adversarial/fault/integrity coverage, isolated parallel test databases, and added `docs/PHASE_2C_COMPLETION_REPORT.md`; no later-phase runtime integration was added.
 - Ignored `.codex-audit-temp/` contains preserved generated benchmark JSONL and the earlier audit temp directory; it remains local and was not deleted or committed.
 - Runtime configuration, storage, models, logs, dependencies, and PDF fixture are ignored or outside the repository.
 
@@ -238,6 +244,8 @@ Status: Phase 2C complete; stopped for developer review before Phase 2D
 - SQLite-backed Prisma `BigInt` sequence capacity is limited to signed 64-bit maximum `9223372036854775807`; exhaustion fails rather than wrapping, while the logical API continues to use decimal strings.
 - Pinned Prisma 5.3.1 may reject independent concurrent writers with a bounded query timeout instead of queuing them all. Phase 2C guarantees no fork/gap and controlled failure, not automatic retry or guaranteed admission under contention.
 - The mutable singleton is cross-checked against the latest event during append but is not an independently trusted checkpoint. Phase 2E still owns full historical verification and Phase 2F owns independently protected checkpoint evidence.
+- Append now authenticates the latest canonical row and duplicated columns before extending the chain, but this remains a current-head guard rather than Phase 2E historical verification.
+- Obvious-secret pattern rejection is defense in depth, not comprehensive redaction; later producers still own structured omission, explicit optional-content policy, and redaction before append.
 - Full version-`1` validation now protects append storage, but event-specific producing integrations and redaction of optional raw content remain owned by their later phases.
 
 ## Blockers

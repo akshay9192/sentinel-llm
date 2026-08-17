@@ -1055,8 +1055,13 @@ While holding that transaction, the service:
 
 The row insertion and head advancement commit or roll back together. Missing,
 malformed, or divergent singleton/latest-row state fails with a controlled
-storage error. The comparison is a head-consistency guard, not the destructive
-full-chain verification owned by Phase 2E.
+storage error. Before extending a non-genesis head, the service also parses and
+fully validates the latest row's canonical event, recomputes its event hash,
+and confirms that every duplicated typed/indexed column matches the canonical
+payload. This prevents a modified current-head payload, indexed column, or
+coordinated row/singleton hash edit from being accepted as the next parent. The
+check is deliberately limited to the current head; destructive verification of
+every historical row remains Phase 2E work.
 
 Prisma/SQLite primary references used to confirm the pinned behavior are the
 [Prisma transaction documentation](https://www.prisma.io/docs/orm/prisma-client/queries/transactions),
@@ -1102,7 +1107,11 @@ unsafe runtime values and preventing mutation races.
 principal/user consistency, delegation and context-reference shapes, enum and
 event/completion combinations, bounded strings/lists/attributes, SHA-256
 fields, policy evidence, and core event-family requirements before persistence.
-Validation or append failure never falls back to `event_logs`.
+It also rejects unmistakable bearer/header assignment, private-key envelope,
+URL-userinfo, and JWT-shaped credential values in any string field as defense
+in depth. Structured omission and producer-side redaction remain the primary
+privacy controls; pattern detection is not represented as comprehensive secret
+detection. Validation or append failure never falls back to `event_logs`.
 
 The service performs no automatic lock retry. With the pinned Prisma 5.3.1
 SQLite driver, independent-client writer contention may return a bounded query

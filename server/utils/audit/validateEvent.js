@@ -155,6 +155,13 @@ const UUID_V4_PATTERN =
 const UTC_MILLISECOND_PATTERN =
   /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}Z$/;
 const REASON_CODE_PATTERN = /^[A-Z][A-Z0-9_]*$/;
+const PROHIBITED_SECRET_PATTERNS = Object.freeze([
+  /\bbearer\s+[A-Za-z0-9._~+/=-]{4,}/iu,
+  /\b(?:proxy-authorization|authorization|cookie|set-cookie|password|passwd|api[_-]?token|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key|recovery[_-]?secret)\s*[:=]\s*\S/iu,
+  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/u,
+  /[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+:[^/\s@]+@/iu,
+  /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\b/u,
+]);
 
 class AuditValidationError extends TypeError {
   constructor(code, field = null) {
@@ -310,6 +317,24 @@ function validateAttributes(value) {
     ) {
       fail("AUDIT_SCHEMA_ATTRIBUTE_VALUE", "attributes");
     }
+  }
+}
+
+function assertNoProhibitedSecrets(value, field = "event") {
+  if (typeof value === "string") {
+    if (PROHIBITED_SECRET_PATTERNS.some((pattern) => pattern.test(value)))
+      fail("AUDIT_SCHEMA_PROHIBITED_SECRET", field);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) =>
+      assertNoProhibitedSecrets(item, `${field}[${index}]`)
+    );
+    return;
+  }
+  if (isPlainObject(value)) {
+    for (const [key, item] of Object.entries(value))
+      assertNoProhibitedSecrets(item, `${field}.${key}`);
   }
 }
 
@@ -481,6 +506,11 @@ function validateAuditEvent(event) {
     fail("AUDIT_SCHEMA_RETRIEVAL_EVIDENCE", "retrieval_hash");
 
   validateAttributes(event.attributes);
+  // Structured omission and producer-side redaction remain the primary
+  // controls. Reject unmistakable credential encodings as defense in depth so
+  // a malformed producer cannot persist them through an otherwise allowed
+  // bounded string field.
+  assertNoProhibitedSecrets(event);
   return event;
 }
 
