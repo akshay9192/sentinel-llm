@@ -15,9 +15,9 @@ Original Sentinel head and safety reference: `1cdee27af70fa96653fa217039d24ca7c9
 
 ## Current Phase
 
-Phase: 2B
-Sub-phase: Canonical hashing
-Status: Phase 2B complete; stopped for developer review before Phase 2C
+Phase: 2C
+Sub-phase: Atomic audit storage
+Status: Phase 2C complete; stopped for developer review before Phase 2D
 
 ## Completed This Session
 
@@ -80,6 +80,14 @@ Status: Phase 2B complete; stopped for developer review before Phase 2C
 - Added complete nested/Unicode `MODEL_STARTED` genesis and linked `MODEL_COMPLETED` fixtures with literal reviewed canonical strings and golden hashes `6b610d20a3b9f19db0c4c008f4bcdf3fa5447032605407e260e2b97b25e92421` and `e35b3f704eb077bb206382cf41220825e3f48c76000f248366679d2b23b0aee1`.
 - Added focused tests for all required determinism/mutation cases plus property order, null/absence, empty string, booleans, numbers, Unicode variants, unsupported values, accessors, prototype-looking keys, circular data, schema/timestamp/hash/genesis failures, output format, and non-mutation.
 - Updated `docs/AUDIT_EVENT_SCHEMA.md` with the exact canonical value domain, byte encoding, limits, version dispatch, genesis rule, event-hash contract, golden vectors, and Phase 2C boundary.
+- Entered explicitly authorized Phase 2C without beginning idempotency, stored-chain verification, checkpointing, chat integration, governance, execution, frontend, or cloud work.
+- Added dedicated `sentinel_audit_events` and singleton `sentinel_audit_chain_state` Prisma models plus an ordered application-database migration; Sentinel audit data remains separate from `event_logs` and no `audit.db` was created.
+- Selected the singleton-head design after comparing latest-row derivation with explicit state: each append transaction's first application statement atomically increments the singleton `BigInt` sequence, acquiring SQLite writer serialization before the head is observed.
+- Added a dedicated append service that rejects caller-supplied sequence/timestamp/hash metadata, snapshots drafts before its first await, cross-checks the singleton against the latest row, assigns exact decimal-string order and server time, validates and hashes the final event, inserts it, and advances the head in one transaction.
+- Added a closed version-`1` runtime validator for field sets, UUIDs, typed principals, delegation/context structures, enums and event/state combinations, byte/list bounds, hash fields, bounded attributes, policy evidence, and core event-family invariants.
+- Stored the complete populated canonical event alongside indexed scalar evidence; enforced DB-level uniqueness for event ID, global sequence, and event hash; kept workspace/user/thread/resource identities as non-cascading historical scalars.
+- Confirmed exact Prisma `BigInt` sequence behavior above JavaScript `Number.MAX_SAFE_INTEGER`, fail-closed independent-client lock contention, rollback after injected post-insert failure, head-mismatch detection, restart continuity, and copied-database restore continuity.
+- Documented the Phase 2C mapping, head-design comparison, transaction contract, index/constraint choices, full-schema validation boundary, explicit no-retry contention behavior, signed SQLite sequence ceiling, and later-phase exclusions in `docs/AUDIT_EVENT_SCHEMA.md`.
 
 ## Tests Executed
 
@@ -132,6 +140,10 @@ Status: Phase 2B complete; stopped for developer review before Phase 2C
 - Phase 2B focused Jest under pinned Node 18.18.0: 2/2 audit suites and 48/48 tests passed; all six project-plan cases and malformed/security edge cases are covered.
 - Phase 2B adjacent Jest under pinned Node 18.18.0: audit canonicalization, hash-chain, and upstream `safeJSONStringify` suites passed 3/3 suites and 55/55 tests.
 - Phase 2B static validation: system and pinned-Node syntax checks passed; server-local ESLint passed for both audit modules; repository-pinned Prettier passed for source, tests, fixture, documentation, and this tracker.
+- Phase 2C focused/adjacent Jest under pinned Node 18.18.0: canonicalization, hash-chain, atomic storage, migration, and upstream `safeJSONStringify` suites passed 5/5 suites and 71/71 tests.
+- Phase 2C storage tests passed for genesis/linkage, exact persisted JSON/head state, caller-metadata rejection, mutation/accessor defense, 17 malformed-event attacks, duplicate event-ID rollback, injected post-insert rollback, missing/head-tampered state, 12 independent-client cross-workspace contenders, explicit held lock, restart/restore, unsafe-Number-range sequence, historical-reference survival, and DB constraints.
+- Phase 2C migration tests applied all migrations to a fresh isolated database, repeated deploy with no pending work, upgraded a pinned pre-Phase-2C schema, and preserved an existing application marker row.
+- Phase 2C static validation: Prisma 5.3.1 schema validation/client generation, pinned-Node syntax checks, server-local ESLint, repository-pinned Prettier, and `git diff --check` passed. The root ESLint configuration was not used for server files because its React plugin crashes under ESLint 9; the authoritative server-local configuration passed.
 
 ## Security Checks
 
@@ -153,6 +165,9 @@ Status: Phase 2B complete; stopped for developer review before Phase 2C
 - Phase 2B canonicalization rejects undefined, non-finite/unsafe numeric values, BigInt, functions, symbols, accessors, custom/runtime objects, sparse/extended arrays, circular data, bad timestamps, malformed chain links, unknown schema versions, and populated/missing pre-hash `event_hash` without fallback or logging event content.
 - Canonical output uses no randomness, ambient environment, locale, timezone, model, external service, or dependency beyond Node built-ins; no raw content storage or privacy policy was broadened.
 - No database, migration, append, sequence allocation, transaction, verifier, checkpoint, chat, AIbitat, governance, MCP, flow, schedule, OpenClaw, frontend, or cloud integration was introduced.
+- Phase 2C uses only dedicated Sentinel tables in the existing application SQLite DB, never `event_logs`; missing/invalid state, schema failure, uniqueness collision, lock timeout, and transaction failure throw controlled errors without a fallback append.
+- The append transaction writes before reading the head, verifies state/latest-row agreement, and rolls back sequence, row, and head together; hostile caller chain metadata, accessors, mutation races, malformed fields, and cascading application-row deletion were tested.
+- Phase 2C adds no runtime event emission or protected side effect. Contention losers fail closed as `AUDIT_STORAGE_BUSY`; automatic replay/retry is deliberately deferred to Phase 2D.
 
 ## Files Changed
 
@@ -165,6 +180,7 @@ Status: Phase 2B complete; stopped for developer review before Phase 2C
 - Phase 1C: added `docs/adr/001-audit-storage.md` through `docs/adr/006-single-vs-multi-user.md`; updated this tracker. No application or infrastructure file changed.
 - Phase 2A: added `docs/AUDIT_EVENT_SCHEMA.md`; updated this tracker. No runtime code, test code, Prisma schema, migration, dependency, or integration hook changed.
 - Phase 2B: added `server/utils/audit/canonicalize.js`, `server/utils/audit/hashChain.js`, focused audit tests and golden fixtures; updated `docs/AUDIT_EVENT_SCHEMA.md` and this tracker. No Prisma schema, migration, dependency, database, or runtime integration hook changed.
+- Phase 2C: added dedicated Prisma audit models and migration, `server/utils/audit/validateEvent.js`, `server/utils/audit/auditDb.js`, atomic-storage and migration tests; updated `docs/AUDIT_EVENT_SCHEMA.md` and this tracker. No dependency, route, chat hook, governance, execution, frontend, OpenClaw, checkpoint, or cloud file changed.
 - Ignored `.codex-audit-temp/` contains preserved generated benchmark JSONL and the earlier audit temp directory; it remains local and was not deleted or committed.
 - Runtime configuration, storage, models, logs, dependencies, and PDF fixture are ignored or outside the repository.
 
@@ -189,6 +205,9 @@ Status: Phase 2B complete; stopped for developer review before Phase 2C
 - Product posture: both single-user and multi-user modes are supported through typed non-null principals; protected execution never relies on a nullable actor.
 - Audit event schema: logical schema version `1` uses closed fields/enums, typed principals, explicit context/correlation IDs, application-level append-only lifecycle events, ordered global sequencing, strict privacy limits, and Phase 2B-compatible hash placeholders while remaining independent from the future Prisma row layout.
 - Canonical hashing: schema-version-`1` events use explicitly escaped canonical JSON with recursively sorted object keys and preserved arrays; SHA-256 covers UTF-8 bytes including `schema_version` and `previous_event_hash`, excludes only a required-null `event_hash`, and returns lowercase 64-hex output.
+- Atomic audit storage: one singleton chain-state row is the transaction serialization point; its sequence increment is the first application statement, and the event row plus final head update share one Prisma interactive transaction.
+- Audit sequence storage uses Prisma `BigInt`/SQLite `INTEGER` with deterministic decimal-string mapping; event ID, sequence, and event hash are unique globally, while application resource IDs remain non-cascading historical scalars.
+- Independent-client SQLite lock contention is not automatically retried in Phase 2C. A loser returns a controlled busy failure with no committed sequence; this avoids inventing Phase 2D idempotency semantics.
 
 ## Known Limitations
 
@@ -216,6 +235,10 @@ Status: Phase 2B complete; stopped for developer review before Phase 2C
 - Plain content hashes can disclose equality and permit guessing of low-entropy inputs; omission and minimization remain the primary privacy controls.
 - Phase 2B validates the chain-hashing envelope and unsafe runtime values, not the complete Phase 2A closed event schema; event construction must apply full field/enum/lifecycle/privacy validation before hashing.
 - The all-zero genesis sentinel is unambiguous only together with the enforced sequence-`"1"` rule. Phase 2C still owns atomic sequence assignment and parent-head selection; Phase 2E owns stored-chain verification.
+- SQLite-backed Prisma `BigInt` sequence capacity is limited to signed 64-bit maximum `9223372036854775807`; exhaustion fails rather than wrapping, while the logical API continues to use decimal strings.
+- Pinned Prisma 5.3.1 may reject independent concurrent writers with a bounded query timeout instead of queuing them all. Phase 2C guarantees no fork/gap and controlled failure, not automatic retry or guaranteed admission under contention.
+- The mutable singleton is cross-checked against the latest event during append but is not an independently trusted checkpoint. Phase 2E still owns full historical verification and Phase 2F owns independently protected checkpoint evidence.
+- Full version-`1` validation now protects append storage, but event-specific producing integrations and redaction of optional raw content remain owned by their later phases.
 
 ## Blockers
 
@@ -226,7 +249,8 @@ Status: Phase 2B complete; stopped for developer review before Phase 2C
 - No Phase 1A, Phase 1B, or Phase 1C blocker remains.
 - No Phase 2A blocker remains.
 - No Phase 2B blocker remains.
-- Phase 2C requires separate developer authorization; Prisma audit storage, migrations, sequence allocation, atomic append, and locking have not started.
+- No Phase 2C blocker remains.
+- Phase 2D requires separate developer authorization; idempotency enforcement and replay semantics have not started.
 
 ## Remaining DoD Items
 
@@ -270,11 +294,19 @@ Status: Phase 2B complete; stopped for developer review before Phase 2C
 - [x] Store human-reviewable deterministic nested/Unicode genesis and second-chain fixtures with literal canonical strings and golden SHA-256 vectors.
 - [x] Pass the six project-plan-required tests plus property-order, null/absence, primitive, unsupported-value, prototype, circular, schema, timestamp, genesis, self-hash, output-format, and non-mutation cases.
 - [x] Keep Phase 2B free of DB integration, dependencies, runtime hooks, and later-phase implementation; update documentation and this tracker.
+- [x] Add dedicated Prisma-managed Sentinel audit event and singleton chain-state tables in the existing application SQLite database without reusing `event_logs` or adding cascading foreign keys.
+- [x] Atomically serialize global sequence allocation, head selection, final event validation/hashing, row insertion, and head advancement in one transaction.
+- [x] Enforce event-ID, global-sequence, and event-hash uniqueness plus closed version-`1` validation and exact decimal-string/BigInt mapping.
+- [x] Pass genesis, multi-append, rollback, write-failure, concurrent-writer, held-lock, duplicate, head-tamper, restart/restore, historical-reference, and malformed-input tests.
+- [x] Pass fresh, repeated-startup, and pinned-upstream upgrade migration tests while preserving existing application data.
+- [x] Keep Phase 2C free of idempotency, verification, checkpoints, chat/runtime hooks, governance, execution, frontend, and cloud work; update documentation and this tracker.
 
 ## Next Recommended Work Unit
 
-Await explicit developer authorization to begin Phase 2C. Do not implement Prisma audit models, migrations, atomic append, sequence allocation, locking, idempotency, verification, checkpointing, integration, governance, execution, OpenClaw, frontend-runtime, or cloud work before that authorization.
+Await explicit developer authorization to begin Phase 2D. Do not implement idempotency/replay behavior, full-chain verification, checkpointing, chat integration, governance, execution, OpenClaw, frontend-runtime, or cloud work before that authorization.
 
 ## Git State
 
 Phase 2B began from local and remote `main` at `ec17de576780f8bb04bab2b62b0fa5e8b952623c` with pre-existing local documentation preserved outside the work unit. The Phase 2B work unit contains only pure canonical/hash modules, focused fixtures/tests, audit-schema documentation, and the intentional tracker update. Ignored `.codex-audit-temp/` remains preserved. No reset, clean, discard, force push, upstream write, dependency, database change, runtime integration, model benchmark, OpenClaw action, cloud action, or external side effect was performed.
+
+Phase 2C began from local and remote `main` at `bcd226456616555f0fa9b6b15f204077f05c1fe1`. The two pre-existing Phase 1B tracker lines and untracked Phase 1B/2B completion reports remain preserved outside the Phase 2C work unit. Phase 2C changed only the Prisma audit schema/migration, isolated audit validator/append modules, focused tests, audit-schema documentation, and this intentional tracker update. No dependency, real application database, runtime integration, model, OpenClaw, cloud, upstream, or external side effect was used.

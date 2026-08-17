@@ -277,6 +277,56 @@ model event_logs {
   @@index([event])
 }
 
+// Sentinel security audit records are deliberately independent from event_logs.
+// Application code may append through the Sentinel audit service only; no
+// relation uses cascading deletion because these are historical identifiers.
+model sentinel_audit_chain_state {
+  id               Int    @id
+  currentSequence  BigInt @default(0) @map("current_sequence")
+  currentEventHash String @map("current_event_hash")
+}
+
+model sentinel_audit_events {
+  id                  Int      @id @default(autoincrement())
+  eventId             String   @unique @map("event_id")
+  schemaVersion       Int      @map("schema_version")
+  sequenceNumber      BigInt   @unique @map("sequence_number")
+  timestampUtc        String   @map("timestamp_utc")
+  eventType           String   @map("event_type")
+  completionState     String   @map("completion_state")
+  principalType       String   @map("principal_type")
+  principalId         String   @map("principal_id")
+  userId              Int?     @map("user_id")
+  workspaceId         Int?     @map("workspace_id")
+  threadId            Int?     @map("thread_id")
+  chatId              Int?     @map("chat_id")
+  requestId           String   @map("request_id")
+  correlationId       String   @map("correlation_id")
+  executionAttemptId  String?  @map("execution_attempt_id")
+  idempotencyKey      String?  @map("idempotency_key")
+  resourceType        String?  @map("resource_type")
+  resourceId          String?  @map("resource_id")
+  policyVersionId     String?  @map("policy_version_id")
+  policyHash          String?  @map("policy_hash")
+  policyDecision      String   @map("policy_decision")
+  executionCapability String?  @map("execution_capability")
+  executionDecision   String   @map("execution_decision")
+  previousEventHash   String   @map("previous_event_hash")
+  eventHash           String   @unique @map("event_hash")
+  eventJson           String   @map("event_json")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@index([workspaceId, sequenceNumber])
+  @@index([principalType, principalId, sequenceNumber])
+  @@index([eventType, sequenceNumber])
+  @@index([timestampUtc])
+  @@index([requestId])
+  @@index([correlationId])
+  @@index([executionAttemptId])
+  @@index([idempotencyKey])
+  @@index([policyVersionId])
+}
+
 model slash_command_presets {
   id            Int      @id @default(autoincrement())
   command       String

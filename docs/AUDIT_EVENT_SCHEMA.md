@@ -1019,3 +1019,102 @@ Phase 2C may use these pure functions only inside its atomic sequence/head
 transaction. Phase 2B does not implement Prisma models, migrations, head lookup,
 sequence allocation, append, idempotency, full-chain verification,
 checkpointing, chat hooks, or execution hooks.
+
+## 22. Phase 2C atomic storage mapping
+
+Phase 2C persists version `1` events in the existing application SQLite database
+through dedicated `sentinel_audit_events` and
+`sentinel_audit_chain_state` Prisma models. It does not reuse `event_logs` and
+does not create a separate `audit.db`.
+
+### 22.1 Head design and serialization
+
+Two designs were evaluated. Deriving the head from the highest event row avoids
+a second representation, but a default deferred SQLite transaction can read a
+shared head before attempting to become a writer. A unique sequence constraint
+would reject one contender but would not make head observation itself serial.
+
+The selected design uses singleton state row `id = 1` with a signed SQLite
+`INTEGER`/Prisma `BigInt` current sequence and a lowercase SHA-256 current hash.
+The migration initializes sequence `0` and the Phase 2B genesis sentinel. The
+first application statement inside every append transaction atomically
+increments the singleton sequence. Because the first statement is a write,
+SQLite establishes the write transaction before the service observes a head.
+This follows SQLite's documented deferred-transaction behavior and was tested
+with independent Prisma 5.3.1 clients on Windows.
+
+While holding that transaction, the service:
+
+1. derives the prior sequence from the increment result;
+2. compares the singleton's prior hash and sequence with the latest event row;
+3. assigns the decimal-string sequence, server timestamp, and previous hash;
+4. validates the complete closed version `1` event;
+5. computes the Phase 2B hash from that final transaction state;
+6. inserts the immutable event row; and
+7. conditionally advances the singleton hash.
+
+The row insertion and head advancement commit or roll back together. Missing,
+malformed, or divergent singleton/latest-row state fails with a controlled
+storage error. The comparison is a head-consistency guard, not the destructive
+full-chain verification owned by Phase 2E.
+
+Prisma/SQLite primary references used to confirm the pinned behavior are the
+[Prisma transaction documentation](https://www.prisma.io/docs/orm/prisma-client/queries/transactions),
+[Prisma SQLite type mapping](https://www.prisma.io/docs/orm/core-concepts/supported-databases/sqlite),
+and [SQLite transaction documentation](https://www.sqlite.org/lang_transaction.html).
+
+### 22.2 Row representation and constraints
+
+`sentinel_audit_events.event_json` stores the complete populated logical event
+using the Phase 2B canonical serializer. Selected scalar columns are written
+from the same validated object for indexed filtering and database constraints.
+They include event/version/order/time/type/state, principal, workspace/thread/
+chat, request/correlation/attempt/idempotency, resource, policy, execution, and
+chain fields.
+
+The database enforces unique global `event_id`, `sequence_number`, and
+`event_hash`. Hash uniqueness is justified because every valid hash input
+contains a unique event ID and global sequence; a collision or duplicated final
+event must fail rather than be silently accepted. `previous_event_hash` is not
+indexed in Phase 2C because the future verifier's authoritative traversal is
+numeric sequence order. Workspace, principal, event type, time, request,
+correlation, attempt, idempotency, and policy-version access paths are indexed.
+
+Workspace, user, thread, API-key, and schedule IDs are intentionally historical
+scalars rather than cascading relations. Deleting an application object cannot
+delete Sentinel audit history. The migration adds no audit-table cascade.
+
+SQLite `INTEGER` and Prisma `BigInt` preserve exact order through signed 64-bit
+sequence `9223372036854775807`. The service converts only between JavaScript
+`bigint` and the logical unsigned decimal string; it never uses JavaScript
+`Number` for sequence allocation. Exhaustion beyond SQLite's signed range is a
+fail-closed storage limitation, not wraparound.
+
+### 22.3 Append boundary and validation
+
+Normal callers supply every version `1` logical field except
+`sequence_number`, `timestamp_utc`, `previous_event_hash`, and `event_hash`.
+Supplying any storage-owned field is rejected. The service snapshots the draft
+with the canonical serializer before its first await, rejecting accessors and
+unsafe runtime values and preventing mutation races.
+
+`validateEvent.js` enforces the closed top-level field set, version, UUIDs,
+principal/user consistency, delegation and context-reference shapes, enum and
+event/completion combinations, bounded strings/lists/attributes, SHA-256
+fields, policy evidence, and core event-family requirements before persistence.
+Validation or append failure never falls back to `event_logs`.
+
+The service performs no automatic lock retry. With the pinned Prisma 5.3.1
+SQLite driver, independent-client writer contention may return a bounded query
+timeout. It is translated to `AUDIT_STORAGE_BUSY`; the losing transaction
+commits no row or sequence. This avoids introducing Phase 2D replay semantics.
+A later caller may make a new explicit attempt after determining its operation
+semantics.
+
+### 22.4 Phase boundary
+
+Phase 2C provides migration, schema validation, exact BigInt mapping, atomic
+append, rollback, lock-contention, restart, and copied-database restore evidence.
+It does not provide retry/idempotency semantics, a public query API, destructive
+full-chain verification, checkpoints, chat emission, governance, or execution
+integration. Those remain in Phases 2D through 5.
